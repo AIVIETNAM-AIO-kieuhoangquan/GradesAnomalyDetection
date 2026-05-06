@@ -1,0 +1,79 @@
+/* ==========================================================================
+   StudentScore — Main Stylesheet
+   Design: Dark mode, Glassmorphism, Gradient accents
+   Fonts: Inter (body), Outfit (headings)
+   ========================================================================== */
+
+/* TODO: Implement toàn bộ CSS
+   Yêu cầu thiết kế:
+
+   1. CSS Variables (Custom Properties):
+      - Định nghĩa color palette: primary gradient (#6C63FF → #3F8EFC)
+      - Background colors (dark: #0f0f23, card: rgba(255,255,255,0.05))
+      - Text colors, border colors, shadow colors
+      - Spacing scale, border-radius, transition timing
+
+   2. Reset & Base:
+      - Box-sizing border-box, margin/padding reset
+      - Body: dark background, font-family Inter, color white
+      - Smooth scrolling
+
+   3. Typography:
+      - h1, h2, h3: font-family Outfit, gradient text cho h1
+      - .subtitle: lighter color, smaller size
+      - .required: màu đỏ cho dấu *
+
+   4. Layout:
+      - #app-header: centered, padding, border-bottom subtle
+      - #app-main: max-width 1200px, centered, padding
+      - .card: glassmorphism (backdrop-filter blur, semi-transparent bg,
+               border 1px rgba white, border-radius 16px, padding)
+      - .card animation: fade-in khi hiện
+
+   5. Upload Section:
+      - .drop-zone: dashed border, hover effect (border color change),
+        drag-over state (background highlight), cursor pointer
+      - .status-bar: flex, space-between, success green color
+      - .btn: gradient background, rounded, hover scale + glow
+      - .btn-primary vs .btn-secondary: khác gradient
+
+   6. Column Mapping:
+      - .mapping-grid: CSS Grid 3 columns
+      - select: styled dark, rounded, focus glow
+      - .mapping-item label: uppercase small text
+
+   7. Config Section:
+      - .config-grid: grid layout
+      - .checkbox-group: flex wrap, custom checkbox styling
+      - input[type=range]: custom slider track + thumb (gradient)
+
+   8. Stats Cards:
+      - .stats-grid: CSS Grid auto-fill minmax(150px, 1fr)
+      - Mỗi card: glassmorphism mini, số lớn bold, label nhỏ bên dưới
+      - Hover: subtle lift + glow
+
+   9. Charts:
+      - .charts-grid: CSS Grid 2 columns
+      - .chart-card: min-height cho Plotly container
+      - .full-width: grid-column span 2
+
+   10. Tables:
+       - .table-wrapper: overflow-x auto (responsive)
+       - table: width 100%, border-collapse
+       - th: gradient background, sticky top
+       - tr:hover: highlight row
+       - Outlier rows: left-border red accent
+
+   11. Report:
+       - #report-content: padding, line-height 1.8
+       - Bold text highlight
+
+   12. Responsive:
+       - @media (max-width: 768px): single column grids,
+         smaller fonts, adjusted padding
+
+   13. Animations:
+       - @keyframes fadeInUp: opacity 0→1, translateY 20px→0
+       - .card: animation fadeInUp 0.5s ease
+       - Transitions: all 0.3s ease trên interactive elements
+*/
