@@ -55,18 +55,7 @@ _uploaded_data: dict[str, Any] = {}
 # --------------------------------------------------------------------------- #
 
 def _allowed_file(filename: str) -> bool:
-    """Kiểm tra file có extension được phép không.
-
-    Args:
-        filename: Tên file upload.
-
-    Returns:
-        True nếu extension nằm trong ALLOWED_EXTENSIONS.
-    """
-    # TODO: Implement — kiểm tra extension
-    raise NotImplementedError
-
-
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 # --------------------------------------------------------------------------- #
 #  Routes
 # --------------------------------------------------------------------------- #
@@ -83,6 +72,33 @@ def index() -> str:
 
 @app.route("/api/upload", methods=["POST"])
 def api_upload() -> tuple[Any, int]:
+    # Check if file exists in request
+    if "file" not in request.files:
+        return jsonify({"error": "File not found in request"}), 400
+    # Get file from request
+    file = request.files["file"]
+    # Check if file is empty
+    if file.filename == "" or file.filename is None:
+        return jsonify({"error": "No selected file"}), 400
+    if not _allowed_file(file.filename):
+        return jsonify({"error": "Only CSV, XLSX, XLS accepted"}), 400
+    
+    df = load_file(file)
+    if df is None:
+        return jsonify({"error": "Invalid CSV/Excel format"}), 400
+    validate_schema(df)
+    # Get column statistics from DataFrame
+    column_stats = get_column_stats(df)
+    # Extracts the 5 rows for a table preview in the frontend.
+    preview = get_preview(df)
+    # Save DataFrame to global variable for later use
+    _uploaded_data["df"] = df
+    return jsonify({
+        "column_stats": column_stats,
+        "preview": preview,
+        "row_count": len(df),
+        "col_count": len(df.columns)
+    })
     """Upload file CSV/Excel, validate schema cố định, trả về preview.
 
     Request:
@@ -117,9 +133,23 @@ def api_upload() -> tuple[Any, int]:
     # 8. Trả về JSON response
     raise NotImplementedError
 
-
 @app.route("/api/analyze", methods=["POST"])
 def api_analyze() -> tuple[Any, int]:
+    # Phase 1
+    # Check if file exists in request
+    if "df" not in _uploaded_data:
+        return jsonify({"error": "No uploaded data"}), 400
+    df = _uploaded_data["df"]
+    # Extracts the target (Exam_Score) and features from the DataFrame.
+    data = _uploaded_data[df]
+    target = df[config.TARGET_COLUMN]
+    stats = compute_descriptive_stats(target)
+    return jsonify({
+        "stats" : stats,
+    }), 200
+
+
+
     """Chạy phân tích trên Exam_Score (target cố định).
 
     Request:
@@ -167,14 +197,8 @@ def api_analyze() -> tuple[Any, int]:
 
 @app.route("/api/sample-data")
 def api_sample_data() -> Any:
-    """Tải file dữ liệu mẫu (CSV) để demo.
-
-    Returns:
-        File CSV mẫu dưới dạng attachment.
-    """
-    # TODO: Implement — send_file từ SAMPLE_DATA_FOLDER
-    raise NotImplementedError
-
+    file_path = os.path.join(SAMPLE_DATA_FOLDER, "scores_sample.csv")
+    return send_file(file_path, as_attachment=True, download_name="scores_sample.csv")
 
 # --------------------------------------------------------------------------- #
 #  Entry point
