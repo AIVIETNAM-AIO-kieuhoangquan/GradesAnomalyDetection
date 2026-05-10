@@ -64,15 +64,63 @@ let uploadedMeta = null;
  * @returns {Promise<void>}
  */
 async function handleFileUpload(file) {
-    // TODO: Implement
-    // 1. Tạo FormData, append file
-    // 2. fetch POST /api/upload
-    // 3. Parse response JSON
-    // 4. Lưu vào uploadedMeta
-    // 5. Gọi renderColumnMapping(response)
-    // 6. Hiển thị upload status (filename, row count)
-    // 7. Show section-mapping & section-config
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+        // DO NOT set Content-Type header — browser auto-sets multipart/form-data
+        // with the correct boundary
+    });
+    const data = await response.json();
+    if (!response.ok) {
+        showError(data.error || "Upload failed");
+        return;
+    }
+    uploadedMeta = data;
+    uploadFilename.textContent = file.name;
+    uploadInfo.textContent = data.row_count + " rows, " + data.col_count + " cols";
+    uploadStatus.classList.remove("hidden");
+
+    // STEP 7: Render preview table
+    renderPreviewTable(data.preview);
+
+    // STEP 8: Show next sections
+    sectionMapping.classList.remove("hidden");
+    sectionConfig.classList.remove("hidden");
 }
+// Drag and drop
+dropZone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    dropZone.classList.add("drag-over");
+});
+
+dropZone.addEventListener("dragleave", () => {
+    dropZone.classList.remove("drag-over");
+});
+
+dropZone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropZone.classList.remove("drag-over");
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileUpload(file);
+});
+
+// Click to select file
+dropZone.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", () => {
+    if (fileInput.files[0]) handleFileUpload(fileInput.files[0]);
+});
+
+
+// TODO: Implement
+// 1. Tạo FormData, append file
+// 2. fetch POST /api/upload
+// 3. Parse response JSON
+// 4. Lưu vào uploadedMeta
+// 5. Gọi renderColumnMapping(response)
+// 6. Hiển thị upload status (filename, row count)
+// 7. Show section-mapping & section-config
 
 // TODO: Implement event listeners
 // - dropZone: dragover, dragleave, drop → gọi handleFileUpload
