@@ -10,6 +10,7 @@ Kiểm tra:
 
 import io
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -202,5 +203,90 @@ class TestCleanSeries:
     def test_converts_to_float(self) -> None:
         """Series int phải chuyển thành float64."""
         s = pd.Series([1, 2, 3])
-        cleaned = clean_series(s)
-        assert cleaned.dtype == "float64"
+        result = clean_series(s)
+        assert result.dtype == np.float64
+
+
+class TestGetPreview:
+    """Tests cho get_preview()."""
+
+    def test_returns_list_of_dicts(self, valid_df: pd.DataFrame) -> None:
+        """get_preview phải trả về list of dict."""
+        preview = get_preview(valid_df, n=2)
+        assert isinstance(preview, list)
+        assert len(preview) == 2
+        assert isinstance(preview[0], dict)
+        assert TARGET_COLUMN in preview[0]
+
+    def test_nan_replaced_with_none(self, df_with_nan: pd.DataFrame) -> None:
+        """NaN values phải được thay bằng None."""
+        preview = get_preview(df_with_nan, n=5)
+        for row in preview:
+            for val in row.values():
+                assert val is not np.nan
+
+
+class TestGetColumnStats:
+    """Tests cho get_column_stats()."""
+
+    def test_returns_all_sections(self, valid_df: pd.DataFrame) -> None:
+        """Phải trả về target, numeric_features, categorical_features."""
+        stats = get_column_stats(valid_df)
+        assert "target" in stats
+        assert "numeric_features" in stats
+        assert "categorical_features" in stats
+
+    def test_target_info(self, valid_df: pd.DataFrame) -> None:
+        """Target info phải có name, dtype, sample."""
+        stats = get_column_stats(valid_df)
+        assert stats["target"]["name"] == TARGET_COLUMN
+        assert "dtype" in stats["target"]
+        assert "sample" in stats["target"]
+
+    def test_numeric_count(self, valid_df: pd.DataFrame) -> None:
+        """numeric_features phải có đúng 6 entries."""
+        stats = get_column_stats(valid_df)
+        assert len(stats["numeric_features"]) == 6
+
+    def test_categorical_has_unique(self, valid_df: pd.DataFrame) -> None:
+        """Mỗi categorical feature phải có 'unique' field."""
+        stats = get_column_stats(valid_df)
+        for cat in stats["categorical_features"]:
+            assert "unique" in cat
+            assert isinstance(cat["unique"], list)
+
+
+class TestEdgeCases:
+    """Edge case tests from code review findings."""
+
+    def test_extract_data_all_nan_target_raises(self, valid_df: pd.DataFrame) -> None:
+        """extract_data phải raise khi tất cả target values là NaN."""
+        df = valid_df.copy()
+        df["Exam_Score"] = np.nan
+        with pytest.raises(ValueError, match="no valid numeric values"):
+            extract_data(df)
+
+    def test_column_stats_mixed_type_categorical(self, valid_df: pd.DataFrame) -> None:
+        """get_column_stats không crash khi categorical có mixed types."""
+        # Build a DataFrame with mixed types in a categorical column
+        df = valid_df.copy()
+        vals = list(df["Gender"].values)
+        vals[0] = 123
+        df["Gender"] = vals
+        stats = get_column_stats(df)
+        assert any(123 in cat["unique"] for cat in stats["categorical_features"])
+
+    def test_validate_schema_partial_numeric_corruption(self, valid_df: pd.DataFrame) -> None:
+        """validate_schema phát hiện cột numeric có một số giá trị không phải số."""
+        df = valid_df.copy()
+        vals = list(df["Hours_Studied"].values)
+        vals[0] = "abc"
+        df["Hours_Studied"] = vals
+        errors = validate_schema(df)
+        assert any("Hours_Studied" in e and "non-numeric" in e.lower() for e in errors)
+
+    def test_load_file_no_extension_raises(self) -> None:
+        """File không có extension phải raise ValueError."""
+        file = io.BytesIO(b"data")
+        with pytest.raises(ValueError, match="no extension"):
+            load_file(file, "datafile")
