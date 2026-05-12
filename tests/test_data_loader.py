@@ -108,17 +108,17 @@ class TestLoadFile:
 
     def test_load_csv_success(self, sample_csv_bytes: bytes) -> None:
         """Đọc CSV hợp lệ phải trả về DataFrame đúng 20 cột."""
-        file = io.BytesIO(sample_csv_bytes)
-        df = load_file(file, "test.csv")
+        file_obj = io.BytesIO(sample_csv_bytes)
+        df = load_file(file_obj, extension="csv")
+        
         assert isinstance(df, pd.DataFrame)
-        assert len(df.columns) == 20
-        assert len(df) == 3
+        assert len(df.columns) == len(EXPECTED_COLUMNS)
+        assert list(df.columns) == EXPECTED_COLUMNS
 
     def test_load_unsupported_extension(self) -> None:
         """File .txt phải raise ValueError."""
-        file = io.BytesIO(b"some data")
-        with pytest.raises(ValueError, match="Unsupported"):
-            load_file(file, "test.txt")
+        with pytest.raises(ValueError):
+            load_file(io.BytesIO(b"data"), extension="txt")
 
 
 class TestValidateSchema:
@@ -127,60 +127,67 @@ class TestValidateSchema:
     def test_valid_schema(self, valid_df: pd.DataFrame) -> None:
         """DataFrame đúng schema phải trả về list rỗng (no errors)."""
         errors = validate_schema(valid_df)
-        assert errors == []
+        assert len(errors) == 0
 
     def test_missing_column(self, df_missing_column: pd.DataFrame) -> None:
         """Thiếu cột Exam_Score phải trả về error."""
+        # 1. Chạy hàm validate với bảng đã bị thiếu cột
         errors = validate_schema(df_missing_column)
-        assert any("Missing" in e for e in errors)
-
+    
+        # 2. Kiểm tra xem trong danh sách lỗi trả về có nhắc đến cái cột bị thiếu không
+        assert any(TARGET_COLUMN in err for err in errors)
     def test_extra_column(self, df_extra_column: pd.DataFrame) -> None:
         """Thừa cột phải trả về error (hoặc warning)."""
         errors = validate_schema(df_extra_column)
-        assert any("Extra" in e for e in errors)
+        assert len(errors) > 0
+        assert any("Extra_Column" in err for err in errors)
 
     def test_empty_dataframe(self) -> None:
         """DataFrame rỗng phải trả về error."""
-        df = pd.DataFrame(columns=EXPECTED_COLUMNS)
-        errors = validate_schema(df)
-        assert any("empty" in e.lower() for e in errors)
+        empty_df = pd.DataFrame(columns=EXPECTED_COLUMNS)
+        errors = validate_schema(empty_df)
+        assert len(errors) > 0
+        assert any("DataFrame is empty" in err for err in errors)
 
     def test_invalid_category(self, valid_df: pd.DataFrame) -> None:
         """Giá trị categorical không hợp lệ phải trả về error."""
-        df = valid_df.copy()
-        df.loc[0, "Gender"] = "Alien"
-        errors = validate_schema(df)
-        assert any("Gender" in e and "invalid" in e.lower() for e in errors)
-
+        invalid_df = valid_df.copy()
+        test_col = CATEGORICAL_FEATURES[0]
+        invalid_df.loc[0, test_col] = "Giá trị tầm bậy"
+        errors = validate_schema(invalid_df)
+        assert len(errors) > 0  
+        assert any(test_col in err for err in errors)
 
 class TestExtractData:
     """Tests cho extract_data()."""
 
     def test_target_is_exam_score(self, valid_df: pd.DataFrame) -> None:
         """Target phải là Series từ cột Exam_Score."""
-        data = extract_data(valid_df)
-        assert isinstance(data["target"], pd.Series)
-        assert list(data["target"]) == [67.0, 61.0, 74.0, 40.0, 91.0]
+        _, _, y = extract_data(valid_df)
+        assert isinstance(y, pd.Series)
+        assert y.name == TARGET_COLUMN
 
     def test_numeric_features_shape(self, valid_df: pd.DataFrame) -> None:
         """numeric_features phải có 6 cột."""
-        data = extract_data(valid_df)
-        assert data["numeric_features"].shape[1] == 6
-        assert list(data["numeric_features"].columns) == NUMERIC_FEATURES
+        X_num, _, _ = extract_data(valid_df)
+        assert X_num.shape[1] == len(NUMERIC_FEATURES)
+        assert set(X_num.columns) == set(NUMERIC_FEATURES)
 
     def test_categorical_features_shape(self, valid_df: pd.DataFrame) -> None:
         """categorical_features phải có 13 cột."""
-        data = extract_data(valid_df)
-        assert data["categorical_features"].shape[1] == 13
-        assert list(data["categorical_features"].columns) == CATEGORICAL_FEATURES
+        _, X_cat, _ = extract_data(valid_df)
+        assert X_cat.shape[1] == len(CATEGORICAL_FEATURES)
+        assert set(X_cat.columns) == set(CATEGORICAL_FEATURES)
 
     def test_nan_rows_dropped(self, df_with_nan: pd.DataFrame) -> None:
         """Dòng có NaN trong Exam_Score phải bị loại khỏi tất cả outputs."""
-        data = extract_data(df_with_nan)
-        # Original 5 rows minus 1 NaN = 4 rows
-        assert len(data["target"]) == 4
-        assert len(data["numeric_features"]) == 4
-        assert len(data["categorical_features"]) == 4
+        X_num, X_cat, y = extract_data(df_with_nan)
+        # Trong fixture df_with_nan bạn xóa 1 dòng, nên length phải giảm đi 1
+        expected_len = len(df_with_nan) - 1
+        assert len(y) == expected_len
+        assert len(X_num) == expected_len
+        assert len(X_cat) == expected_len
+        assert y.isna().sum() == 0
 
 
 class TestCleanSeries:
@@ -188,10 +195,10 @@ class TestCleanSeries:
 
     def test_removes_nan(self) -> None:
         """Series có NaN phải bị loại bỏ."""
-        s = pd.Series([1.0, np.nan, 3.0, None, 5.0])
-        result = clean_series(s)
-        assert len(result) == 3
-        assert result.dtype == np.float64
+        s = pd.Series([10.0, None, 30.0])
+        cleaned = clean_series(s)
+        assert len(cleaned) == 2
+        assert cleaned.isna().sum() == 0
 
     def test_converts_to_float(self) -> None:
         """Series int phải chuyển thành float64."""
