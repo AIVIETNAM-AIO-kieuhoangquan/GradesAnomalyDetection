@@ -45,10 +45,10 @@ gantt
 > Upload file CSV → validate schema 20 cột → hiển thị preview + column stats → thống kê mô tả Exam_Score
 
 ### Demo cuối tuần 1
-- [ ] Upload file → validate đúng/sai schema → hiển thị preview 5 dòng
-- [ ] Hiển thị column stats (target, numeric features, categorical features)
-- [ ] Bấm Phân tích → hiển thị stats cards (Mean, Median, Std, ...)
-- [ ] Giao diện dark mode cơ bản, chạy được trên localhost
+- [x] Upload file → validate đúng/sai schema → hiển thị preview 5 dòng
+- [x] Hiển thị column stats (target, numeric features, categorical features)
+- [x] Giao diện dark mode cơ bản, chạy được trên localhost
+- [ ] Bấm Phân tích → hiển thị stats cards (Mean, Median, Std, ...) *(carry over → Tuần 2)*
 
 ---
 
@@ -120,6 +120,7 @@ gantt
 - [ ] Kiểm định phân phối (Shapiro-Wilk, Anderson-Darling) + nhận xét
 - [ ] Bảng outlier kèm phương pháp phát hiện + giải thích
 - [ ] Chọn phương pháp outlier (IQR/Z-Score/MAD) + điều chỉnh threshold
+- [ ] Stats cards hiển thị đủ (carry over từ Tuần 1)
 
 ---
 
@@ -145,13 +146,13 @@ gantt
 
 | Task | File | Hàm/Phần | Mô tả | Ngày |
 |------|------|----------|-------|------|
-| PL-2.1 | `app.py` | `api_analyze()` Phase 2 | Kết nối distribution + outlier | Day 1-2 |
-| PL-2.2 | `app.js` | `runAnalysis()` | Thu thập config, gửi request, dispatch render | Day 1-2 |
-| PL-2.3 | `app.js` | `renderCharts()` | Parse Plotly JSON, gọi Plotly.newPlot | Day 2-3 |
+| PL-2.1 | `app.py` | `api_analyze()` Phase 2 | Kết nối distribution + outlier + charts + report đầy đủ | Day 1-2 |
+| PL-2.2 | `app.js` | `renderStats()` | Render 12 stat cards từ API response | Day 1-2 |
+| PL-2.3 | `app.js` | `renderCharts()` | Parse Plotly JSON, gọi Plotly.newPlot cho 5 biểu đồ | Day 2-3 |
 | PL-2.4 | `app.js` | `renderOutliers()` | Render bảng outlier + highlight rows | Day 3-4 |
-| PL-2.5 | `style.css` | — | Charts grid, outlier table, config panel | Day 3-5 |
-| PL-2.6 | `app.js` | Event listeners | Threshold slider, checkbox methods | Day 4-5 |
-| PL-2.7 | `index.html` | — | Thêm distribution results section | Day 2 |
+| PL-2.5 | `app.js` | `renderDistribution()` | Render bảng kiểm định phân phối + kết luận | Day 3-4 |
+| PL-2.6 | `style.css` | — | Charts grid, outlier table styles, config panel | Day 3-5 |
+| PL-2.7 | `app.js` | Toast notifications | Thay thế `alert()` bằng toast đẹp hơn | Day 4-5 |
 
 ### 🟠 Model (MO) — 13 tasks
 
