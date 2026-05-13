@@ -18,6 +18,7 @@ from typing import Any
 
 from flask import Flask, jsonify, render_template, request, send_file
 
+import config
 from config import (
     ALLOWED_EXTENSIONS,
     MAX_CONTENT_LENGTH,
@@ -55,50 +56,22 @@ _uploaded_data: dict[str, Any] = {}
 # --------------------------------------------------------------------------- #
 
 def _allowed_file(filename: str) -> bool:
+    """Kiểm tra extension có được phép không."""
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
 # --------------------------------------------------------------------------- #
 #  Routes
 # --------------------------------------------------------------------------- #
 
 @app.route("/")
 def index() -> str:
-    """Render trang chính (Single Page Application).
-
-    Returns:
-        HTML content từ template index.html.
-    """
+    """Render trang chính (Single Page Application)."""
     return render_template("index.html")
 
 
 @app.route("/api/upload", methods=["POST"])
 def api_upload() -> tuple[Any, int]:
-    # Check if file exists in request
-    if "file" not in request.files:
-        return jsonify({"error": "File not found in request"}), 400
-    # Get file from request
-    file = request.files["file"]
-    # Check if file is empty
-    if file.filename == "" or file.filename is None:
-        return jsonify({"error": "No selected file"}), 400
-    if not _allowed_file(file.filename):
-        return jsonify({"error": "Only CSV, XLSX, XLS accepted"}), 400
-    
-    df = load_file(file)
-    if df is None:
-        return jsonify({"error": "Invalid CSV/Excel format"}), 400
-    validate_schema(df)
-    # Get column statistics from DataFrame
-    column_stats = get_column_stats(df)
-    # Extracts the 5 rows for a table preview in the frontend.
-    preview = get_preview(df)
-    # Save DataFrame to global variable for later use
-    _uploaded_data["df"] = df
-    return jsonify({
-        "column_stats": column_stats,
-        "preview": preview,
-        "row_count": len(df),
-        "col_count": len(df.columns)
-    })
     """Upload file CSV/Excel, validate schema cố định, trả về preview.
 
     Request:
@@ -107,98 +80,149 @@ def api_upload() -> tuple[Any, int]:
 
     Response (200):
         {
-            "column_stats": {
-                "target": {"name": "Exam_Score", ...},
-                "numeric_features": [...],
-                "categorical_features": [...]
-            },
+            "column_stats": { "target": {...}, "numeric_features": [...], ... },
             "preview": [...],
             "row_count": 6607,
             "col_count": 20
         }
 
-    Response (400): {"error": "..."} nếu file không hợp lệ hoặc sai schema.
-
-    Returns:
-        Tuple (JSON response, HTTP status code).
+    Response (400/500): {"error": "..."} nếu file không hợp lệ hoặc sai schema.
     """
-    # TODO: Implement
     # 1. Kiểm tra file có trong request không
-    # 2. Kiểm tra allowed extension
-    # 3. Gọi load_file() để đọc DataFrame
-    # 4. Gọi validate_schema() để kiểm tra đúng 20 cột
-    # 5. Gọi get_column_stats() để lấy metadata
-    # 6. Gọi get_preview() để lấy preview
-    # 7. Lưu DataFrame vào _uploaded_data
-    # 8. Trả về JSON response
-    raise NotImplementedError
+    if "file" not in request.files:
+        return jsonify({"error": "Không tìm thấy file trong yêu cầu"}), 400
+
+    file = request.files["file"]
+
+    # 2. Kiểm tra tên file
+    if not file.filename:
+        return jsonify({"error": "Chưa chọn file"}), 400
+
+    # 3. Kiểm tra allowed extension
+    if not _allowed_file(file.filename):
+        return jsonify({"error": "Định dạng file không hỗ trợ (chỉ nhận .csv, .xlsx, .xls)"}), 400
+
+    try:
+        # 4. Đọc file → DataFrame (phải truyền cả filename để detect extension)
+        df = load_file(file, file.filename)
+
+        # 5. Validate schema 20 cột
+        errors = validate_schema(df)
+        if errors:
+            return jsonify({
+                "error": "Dữ liệu không khớp schema yêu cầu (20 cột)",
+                "details": errors
+            }), 400
+
+        # 6. Lưu DataFrame vào memory
+        _uploaded_data["df"] = df
+
+        # 7. Trả về metadata + preview
+        return jsonify({
+            "column_stats": get_column_stats(df),
+            "preview": get_preview(df),
+            "row_count": len(df),
+            "col_count": len(df.columns)
+        }), 200
+
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Lỗi xử lý file: {str(e)}"}), 500
+
 
 @app.route("/api/analyze", methods=["POST"])
 def api_analyze() -> tuple[Any, int]:
-    # Phase 1
-    # Check if file exists in request
-    if "df" not in _uploaded_data:
-        return jsonify({"error": "No uploaded data"}), 400
-    df = _uploaded_data["df"]
-    # Extracts the target (Exam_Score) and features from the DataFrame.
-    data = _uploaded_data[df]
-    target = df[config.TARGET_COLUMN]
-    stats = compute_descriptive_stats(target)
-    return jsonify({
-        "stats" : stats,
-    }), 200
-
-
-
     """Chạy phân tích trên Exam_Score (target cố định).
 
     Request:
         Content-Type: application/json
         {
-            "methods": ["iqr", "zscore"], // optional, mặc định ["iqr", "zscore"]
-            "threshold": 2.5             // optional, mặc định 2.5
+            "methods": ["iqr", "zscore"],  // optional, mặc định ["iqr", "zscore"]
+            "threshold": 2.5               // optional, mặc định 2.5
         }
 
     Response (200):
         {
-            "stats": { ... },             // DescriptiveStats (Exam_Score)
-            "distribution": { ... },      // DistributionResult
-            "outliers": [ ... ],          // list[OutlierRecord]
-            "charts": {                   // chart_name → Plotly JSON string
-                "histogram_kde": "...",
-                "box_plot": "...",
-                ...
-            },
-            "report": {                   // FullReport
-                "summary": "...",
-                "statistics_comment": "...",
-                ...
-            }
+            "stats": { ... },
+            "distribution": { ... },
+            "outliers": [ ... ],
+            "charts": { "histogram_kde": "...", "box_plot": "...", ... },
+            "report": { "summary": "...", ... }
         }
 
     Response (400): {"error": "..."} nếu chưa upload dữ liệu.
-
-    Returns:
-        Tuple (JSON response, HTTP status code).
     """
-    # TODO: Implement
-    # 1. Kiểm tra _uploaded_data có dữ liệu chưa
-    # 2. Parse request JSON (methods, threshold)
-    # 3. Gọi extract_data() để lấy target (Exam_Score)
-    # 4. Gọi compute_descriptive_stats(target)
-    # 5. Gọi run_all_tests(target)
-    # 6. Gọi detect_ensemble(target, methods, params)
-    # 7. Gọi build_outlier_report(target, None, indices, details)
-    # 8. Gọi generate_all_charts(target, indices)
-    # 9. Gọi generate_full_report(stats, dist, outliers, count)
-    # 10. Trả về JSON response tổng hợp
-    raise NotImplementedError
+    # 1. Kiểm tra dữ liệu đã upload chưa
+    if "df" not in _uploaded_data:
+        return jsonify({"error": "Vui lòng upload dữ liệu trước khi phân tích"}), 400
+
+    df = _uploaded_data["df"]
+
+    # 2. Parse request JSON
+    req_data = request.json or {}
+    methods = req_data.get("methods", ["iqr", "zscore"])
+    threshold = float(req_data.get("threshold", 2.5))
+
+    try:
+        # 3. Trích xuất target (Exam_Score) và features
+        extracted = extract_data(df)
+        target = extracted["target"]
+        full_df = extracted["full_df"]
+
+        # 4. Thống kê mô tả
+        stats = compute_descriptive_stats(target)
+
+        # 5. Kiểm định phân phối
+        dist_results = run_all_tests(target)
+
+        # 6. Phát hiện outlier
+        params = {
+            "zscore": {"threshold": threshold},
+            "mad": {"threshold": threshold + 1.0},
+        }
+        outlier_indices, outlier_details = detect_ensemble(
+            target,
+            methods=methods,
+            params=params,
+        )
+
+        # 7. Xây dựng bảng outlier
+        outlier_records = build_outlier_report(full_df, outlier_indices, outlier_details)
+
+        # 8. Tạo biểu đồ
+        charts = generate_all_charts(target, outlier_indices)
+
+        # 9. Sinh báo cáo
+        report = generate_full_report(stats, dist_results, outlier_records, len(target))
+
+        # 10. Trả về JSON tổng hợp
+        return jsonify({
+            "stats": stats,
+            "distribution": dist_results,
+            "outliers": outlier_records,
+            "charts": charts,
+            "report": report,
+        }), 200
+
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Lỗi phân tích: {str(e)}"}), 500
 
 
 @app.route("/api/sample-data")
 def api_sample_data() -> Any:
+    """Trả về file CSV mẫu để user tải về và thử nghiệm."""
     file_path = os.path.join(SAMPLE_DATA_FOLDER, "scores_sample.csv")
+    if not os.path.exists(file_path):
+        return jsonify({"error": "File dữ liệu mẫu không tồn tại"}), 404
     return send_file(file_path, as_attachment=True, download_name="scores_sample.csv")
+
 
 # --------------------------------------------------------------------------- #
 #  Entry point

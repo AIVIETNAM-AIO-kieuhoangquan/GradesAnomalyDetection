@@ -4,76 +4,522 @@
    Fonts: Inter (body), Outfit (headings)
    ========================================================================== */
 
-/* TODO: Implement toàn bộ CSS
-   Yêu cầu thiết kế:
+/* --------------------------------------------------------------------------
+   1. CSS Variables
+   -------------------------------------------------------------------------- */
+:root {
+    --primary: #6C63FF;
+    --primary-end: #3F8EFC;
+    --accent: #FF4B4B;
+    --bg: #0d0d1a;
+    --bg-card: rgba(255, 255, 255, 0.05);
+    --bg-card-hover: rgba(255, 255, 255, 0.08);
+    --border: rgba(255, 255, 255, 0.1);
+    --text: #ffffff;
+    --text-muted: rgba(255, 255, 255, 0.55);
+    --success: #4CAF50;
+    --radius: 16px;
+    --radius-sm: 8px;
+    --transition: all 0.3s ease;
+    --shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+    --glow: 0 0 20px rgba(108, 99, 255, 0.35);
+}
 
-   1. CSS Variables (Custom Properties):
-      - Định nghĩa color palette: primary gradient (#6C63FF → #3F8EFC)
-      - Background colors (dark: #0f0f23, card: rgba(255,255,255,0.05))
-      - Text colors, border colors, shadow colors
-      - Spacing scale, border-radius, transition timing
+/* --------------------------------------------------------------------------
+   2. Reset & Base
+   -------------------------------------------------------------------------- */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
 
-   2. Reset & Base:
-      - Box-sizing border-box, margin/padding reset
-      - Body: dark background, font-family Inter, color white
-      - Smooth scrolling
+html {
+    scroll-behavior: smooth;
+}
 
-   3. Typography:
-      - h1, h2, h3: font-family Outfit, gradient text cho h1
-      - .subtitle: lighter color, smaller size
-      - .required: màu đỏ cho dấu *
+body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.65;
+    overflow-x: hidden;
+    min-height: 100vh;
+}
 
-   4. Layout:
-      - #app-header: centered, padding, border-bottom subtle
-      - #app-main: max-width 1200px, centered, padding
-      - .card: glassmorphism (backdrop-filter blur, semi-transparent bg,
-               border 1px rgba white, border-radius 16px, padding)
-      - .card animation: fade-in khi hiện
+/* --------------------------------------------------------------------------
+   3. Typography
+   -------------------------------------------------------------------------- */
+h1, h2, h3, h4 {
+    font-family: 'Outfit', 'Inter', sans-serif;
+    font-weight: 600;
+    line-height: 1.25;
+}
 
-   5. Upload Section:
-      - .drop-zone: dashed border, hover effect (border color change),
-        drag-over state (background highlight), cursor pointer
-      - .status-bar: flex, space-between, success green color
-      - .btn: gradient background, rounded, hover scale + glow
-      - .btn-primary vs .btn-secondary: khác gradient
+h2 {
+    font-size: 1.4rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
 
-   6. Column Mapping:
-      - .mapping-grid: CSS Grid 3 columns
-      - select: styled dark, rounded, focus glow
-      - .mapping-item label: uppercase small text
+h3 {
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+}
 
-   7. Config Section:
-      - .config-grid: grid layout
-      - .checkbox-group: flex wrap, custom checkbox styling
-      - input[type=range]: custom slider track + thumb (gradient)
+.subtitle {
+    color: var(--text-muted);
+    font-size: 1.1rem;
+}
 
-   8. Stats Cards:
-      - .stats-grid: CSS Grid auto-fill minmax(150px, 1fr)
-      - Mỗi card: glassmorphism mini, số lớn bold, label nhỏ bên dưới
-      - Hover: subtle lift + glow
+.hint {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
 
-   9. Charts:
-      - .charts-grid: CSS Grid 2 columns
-      - .chart-card: min-height cho Plotly container
-      - .full-width: grid-column span 2
+.required {
+    color: #FF4B4B;
+}
 
-   10. Tables:
-       - .table-wrapper: overflow-x auto (responsive)
-       - table: width 100%, border-collapse
-       - th: gradient background, sticky top
-       - tr:hover: highlight row
-       - Outlier rows: left-border red accent
+/* --------------------------------------------------------------------------
+   4. Layout
+   -------------------------------------------------------------------------- */
+#app-header {
+    text-align: center;
+    padding: 4rem 1.5rem 3rem;
+    position: relative;
+    background: radial-gradient(
+        ellipse 80% 60% at 50% 0%,
+        rgba(108, 99, 255, 0.18) 0%,
+        transparent 70%
+    );
+}
 
-   11. Report:
-       - #report-content: padding, line-height 1.8
-       - Bold text highlight
+#app-header h1 {
+    font-size: clamp(2.2rem, 5vw, 3.5rem);
+    background: linear-gradient(135deg, #6C63FF 0%, #3F8EFC 50%, #a78bfa 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 0.5rem;
+}
 
-   12. Responsive:
-       - @media (max-width: 768px): single column grids,
-         smaller fonts, adjusted padding
+#app-main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1.25rem 5rem;
+}
 
-   13. Animations:
-       - @keyframes fadeInUp: opacity 0→1, translateY 20px→0
-       - .card: animation fadeInUp 0.5s ease
-       - Transitions: all 0.3s ease trên interactive elements
-*/
+/* Card — glassmorphism */
+.card {
+    background: var(--bg-card);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 2rem;
+    margin-bottom: 1.75rem;
+    box-shadow: var(--shadow);
+    animation: fadeInUp 0.5s ease backwards;
+}
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0);    }
+}
+
+/* --------------------------------------------------------------------------
+   5. Upload Section
+   -------------------------------------------------------------------------- */
+.drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 3rem 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: var(--transition);
+    margin-bottom: 1.25rem;
+    background: transparent;
+}
+
+.drop-zone:hover,
+.drop-zone.drag-over {
+    border-color: var(--primary);
+    background: rgba(108, 99, 255, 0.06);
+    box-shadow: var(--glow);
+}
+
+.drop-zone p {
+    font-size: 1.05rem;
+    margin-bottom: 0.25rem;
+}
+
+.status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    background: rgba(76, 175, 80, 0.08);
+    border: 1px solid rgba(76, 175, 80, 0.25);
+    padding: 0.85rem 1.2rem;
+    border-radius: var(--radius-sm);
+    margin-bottom: 1rem;
+}
+
+#upload-filename {
+    font-weight: 600;
+    color: var(--success);
+}
+
+#upload-info {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+/* --------------------------------------------------------------------------
+   6. Buttons
+   -------------------------------------------------------------------------- */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border: none;
+    border-radius: 30px;
+    padding: 0.75rem 1.75rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    color: #fff;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary), var(--primary-end));
+    box-shadow: 0 4px 15px rgba(108, 99, 255, 0.3);
+}
+
+.btn-primary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(108, 99, 255, 0.5);
+}
+
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--border);
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.18);
+}
+
+/* --------------------------------------------------------------------------
+   7. Column Mapping
+   -------------------------------------------------------------------------- */
+.mapping-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.mapping-item label {
+    display: block;
+    margin-bottom: 0.45rem;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+}
+
+select {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.7rem 1rem;
+    border-radius: var(--radius-sm);
+    outline: none;
+    font-size: 0.9rem;
+    transition: var(--transition);
+    cursor: pointer;
+    -webkit-appearance: none;
+}
+
+select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.2);
+}
+
+select option {
+    background: #1a1a2e;
+}
+
+/* --------------------------------------------------------------------------
+   8. Config Section
+   -------------------------------------------------------------------------- */
+.config-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
+    margin-bottom: 1.75rem;
+}
+
+.config-item label:first-child {
+    display: block;
+    margin-bottom: 0.75rem;
+    font-weight: 500;
+}
+
+.checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.25rem;
+}
+
+.checkbox-group label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    transition: color 0.2s;
+}
+
+.checkbox-group label:hover {
+    color: var(--text);
+}
+
+.checkbox-group input[type="checkbox"] {
+    accent-color: var(--primary);
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--border);
+    margin-top: 0.75rem;
+    cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary), var(--primary-end));
+    box-shadow: 0 2px 8px rgba(108, 99, 255, 0.5);
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+}
+
+/* --------------------------------------------------------------------------
+   9. Stats Cards
+   -------------------------------------------------------------------------- */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.75rem;
+}
+
+.stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem 1rem;
+    text-align: center;
+    transition: var(--transition);
+    cursor: default;
+}
+
+.stat-card:hover {
+    transform: translateY(-4px);
+    background: var(--bg-card-hover);
+    border-color: rgba(108, 99, 255, 0.35);
+    box-shadow: var(--glow);
+}
+
+.stat-icon {
+    display: block;
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin-bottom: 0.25rem;
+    opacity: 0.8;
+}
+
+.stat-value {
+    display: block;
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 0.25rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.stat-label {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* --------------------------------------------------------------------------
+   10. Charts Grid
+   -------------------------------------------------------------------------- */
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+    margin-bottom: 1.75rem;
+}
+
+.full-width {
+    grid-column: span 2;
+}
+
+.chart-card {
+    min-height: 380px;
+}
+
+.chart-card h3 {
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+}
+
+/* --------------------------------------------------------------------------
+   11. Tables
+   -------------------------------------------------------------------------- */
+.table-wrapper {
+    overflow-x: auto;
+    border-radius: var(--radius-sm);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+th {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 0.85rem 1rem;
+    text-align: left;
+    position: sticky;
+    top: 0;
+}
+
+td {
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+}
+
+tr:last-child td {
+    border-bottom: none;
+}
+
+tr:hover td {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.outlier-row td {
+    border-left: 3px solid var(--accent);
+}
+
+.outlier-row:first-child td:first-child {
+    border-top-left-radius: 4px;
+}
+
+/* --------------------------------------------------------------------------
+   12. Report Section
+   -------------------------------------------------------------------------- */
+.report-section p {
+    margin-bottom: 0.75rem;
+}
+
+.report-section hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 1rem 0;
+}
+
+#report-content h4 {
+    margin-bottom: 0.5rem;
+}
+
+/* --------------------------------------------------------------------------
+   13. Visibility helpers
+   -------------------------------------------------------------------------- */
+[hidden] {
+    display: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   14. Responsive
+   -------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+    #app-header {
+        padding: 2.5rem 1rem 2rem;
+    }
+
+    .card {
+        padding: 1.25rem;
+    }
+
+    .charts-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .full-width {
+        grid-column: span 1;
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    }
+
+    .config-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .btn {
+        padding: 0.65rem 1.25rem;
+        font-size: 0.875rem;
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
