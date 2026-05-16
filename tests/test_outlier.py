@@ -42,18 +42,30 @@ class TestDetectIQR:
 
     def test_finds_known_outliers(self, scores_with_outliers: pd.Series) -> None:
         """Phải phát hiện index 0 và 9 là outlier."""
-        # TODO: Implement test
-        pass
+        outlier_indices, detail =      detect_iqr(scores_with_outliers)
+
+        assert outlier_indices == [0, 9]
+        assert detail["outlier_indices"] == [0, 9]
+        assert detail["n_outliers"] == 2
 
     def test_no_outliers(self, clean_scores: pd.Series) -> None:
         """Dữ liệu sạch phải trả về list rỗng."""
-        # TODO: Implement test
-        pass
+        outlier_indices, detail = detect_iqr(clean_scores)
+
+        assert outlier_indices == []
+        assert detail["outlier_indices"] == []
+        assert detail["n_outliers"] == 0
+
 
     def test_returns_detail(self, scores_with_outliers: pd.Series) -> None:
         """DetectionDetail phải chứa lower_bound, upper_bound."""
-        # TODO: Implement test
-        pass
+        outlier_indices, detail = detect_iqr(scores_with_outliers)
+
+        assert "lower_bound" in detail
+        assert "upper_bound" in detail
+        assert isinstance(detail["lower_bound"], float)
+        assert isinstance(detail["upper_bound"], float)
+
 
 
 class TestDetectZscore:
