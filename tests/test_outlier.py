@@ -73,14 +73,18 @@ class TestDetectZscore:
 
     def test_finds_extreme_values(self, scores_with_outliers: pd.Series) -> None:
         """Giá trị 1.0 và 15.0 phải bị flag."""
-        # TODO: Implement test
-        pass
+        outlier_indices, detail = detect_zscore(scores_with_outliers, threshold=1.5)
+
+        assert 0 in outlier_indices
+        assert 9 in outlier_indices
+        assert detail["n_outliers"] == len(outlier_indices)
 
     def test_threshold_effect(self, scores_with_outliers: pd.Series) -> None:
         """Threshold thấp hơn → nhiều outlier hơn."""
-        # TODO: Implement test
-        pass
+        loose_indices, _ = detect_zscore(scores_with_outliers, threshold=1.5)
+        strict_indices, _ = detect_zscore(scores_with_outliers, threshold=2.5)
 
+        assert len(loose_indices) >= len(strict_indices)
 
 class TestDetectEnsemble:
     """Tests cho detect_ensemble()."""
