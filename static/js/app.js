@@ -290,25 +290,25 @@ function renderResults(data) {
  * @param {Object} stats - DescriptiveStats dict từ API.
  */
 function renderStats(stats) {
-  const container = document.getElementById('stats-cards');
-  if (!container) return;
+    const container = document.getElementById('stats-cards');
+    if (!container) return;
 
-  const cardDefs = [
-    { key: 'mean',     label: 'Trung bình',   icon: '📊', fmt: v => v.toFixed(2) },
-    { key: 'median',   label: 'Trung vị',     icon: '📍', fmt: v => v.toFixed(2) },
-    { key: 'std',      label: 'Độ lệch chuẩn',icon: '📐', fmt: v => v.toFixed(2) },
-    { key: 'min',      label: 'Nhỏ nhất',     icon: '⬇️', fmt: v => v.toFixed(1) },
-    { key: 'max',      label: 'Lớn nhất',     icon: '⬆️', fmt: v => v.toFixed(1) },
-    { key: 'q1',       label: 'Q1 (25%)',     icon: '◼️', fmt: v => v.toFixed(2) },
-    { key: 'q3',       label: 'Q3 (75%)',     icon: '◼️', fmt: v => v.toFixed(2) },
-    { key: 'iqr',      label: 'IQR',          icon: '↕️', fmt: v => v.toFixed(2) },
-    { key: 'skewness', label: 'Độ lệch',      icon: '〽️', fmt: v => v.toFixed(3) },
-    { key: 'kurtosis', label: 'Độ nhọn',      icon: '🔺', fmt: v => v.toFixed(3) },
-    { key: 'count',    label: 'Số mẫu',       icon: '🔢', fmt: v => v.toLocaleString() },
-    { key: 'missing',  label: 'Thiếu dữ liệu',icon: '❓', fmt: v => v },
-  ];
+    const cardDefs = [
+        { key: 'mean', label: 'Trung bình', icon: '📊', fmt: v => v.toFixed(2) },
+        { key: 'median', label: 'Trung vị', icon: '📍', fmt: v => v.toFixed(2) },
+        { key: 'std', label: 'Độ lệch chuẩn', icon: '📐', fmt: v => v.toFixed(2) },
+        { key: 'min', label: 'Nhỏ nhất', icon: '⬇️', fmt: v => v.toFixed(1) },
+        { key: 'max', label: 'Lớn nhất', icon: '⬆️', fmt: v => v.toFixed(1) },
+        { key: 'q1', label: 'Q1 (25%)', icon: '◼️', fmt: v => v.toFixed(2) },
+        { key: 'q3', label: 'Q3 (75%)', icon: '◼️', fmt: v => v.toFixed(2) },
+        { key: 'iqr', label: 'IQR', icon: '↕️', fmt: v => v.toFixed(2) },
+        { key: 'skewness', label: 'Độ lệch', icon: '〽️', fmt: v => v.toFixed(3) },
+        { key: 'kurtosis', label: 'Độ nhọn', icon: '🔺', fmt: v => v.toFixed(3) },
+        { key: 'count', label: 'Số mẫu', icon: '🔢', fmt: v => v.toLocaleString() },
+        { key: 'missing', label: 'Thiếu dữ liệu', icon: '❓', fmt: v => v },
+    ];
 
-  container.innerHTML = cardDefs.map(({ key, label, icon, fmt }) => `
+    container.innerHTML = cardDefs.map(({ key, label, icon, fmt }) => `
     <div class="stat-card" id="stat-${key}">
       <div class="stat-icon">${icon}</div>
       <div class="stat-label">${label}</div>
@@ -332,8 +332,8 @@ function renderDistribution(dist) {
             <td>${t.statistic?.toFixed(4) ?? "—"}</td>
             <td>${t.p_value?.toFixed(4) ?? "N/A"}</td>
             <td>${t.is_normal
-                ? '<span style="color:#4CAF50">✔ Chuẩn</span>'
-                : '<span style="color:#FF4B4B">✘ Không chuẩn</span>'}</td>
+            ? '<span style="color:#4CAF50">✔ Chuẩn</span>'
+            : '<span style="color:#FF4B4B">✘ Không chuẩn</span>'}</td>
         </tr>
     `).join("");
 
@@ -363,21 +363,30 @@ function renderCharts(charts) {
     const config = { responsive: true, displayModeBar: false };
 
     const chartMap = {
-        "histogram_kde":   "chart-histogram",
-        "box_plot":        "chart-boxplot",
-        "violin_plot":     "chart-violin",
-        "qq_plot":         "chart-qqplot",
+        "histogram_kde": "chart-histogram",
+        "box_plot": "chart-boxplot",
+        "violin_plot": "chart-violin",
+        "qq_plot": "chart-qqplot",
         "scatter_outlier": "chart-scatter",
     };
 
-    Object.entries(chartMap).forEach(([key, containerId]) => {
-        if (charts[key]) {
-            try {
-                const parsed = JSON.parse(charts[key]);
-                Plotly.newPlot(containerId, parsed.data, parsed.layout, config);
-            } catch (e) {
-                console.warn(`Lỗi render chart ${key}:`, e);
-            }
+    Object.entries(chartMap).forEach(([key, elementId]) => {
+        const el = document.getElementById(elementId);
+        if (!el) return;
+        if (!charts[key]) {
+            el.innerHTML = '<p class="chart-empty">Biểu đồ chưa sẵn sàng</p>';
+            return;
+        }
+        try {
+            const figData = JSON.parse(charts[key]);
+            Plotly.newPlot(elementId, figData.data, figData.layout, {
+                responsive: true,
+                displayModeBar: true,
+                displaylogo: false,
+            });
+        } catch (err) {
+            console.error(`Lỗi render chart ${key}:`, err);
+            el.innerHTML = '<p class="chart-error">Không thể tải biểu đồ</p>';
         }
     });
 }
