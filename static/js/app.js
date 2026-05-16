@@ -290,29 +290,33 @@ function renderResults(data) {
  * @param {Object} stats - DescriptiveStats dict từ API.
  */
 function renderStats(stats) {
-    const metrics = [
-        { key: "count",    label: "Số mẫu",          icon: "N" },
-        { key: "mean",     label: "Trung bình",       icon: "μ" },
-        { key: "median",   label: "Trung vị",         icon: "Md" },
-        { key: "std",      label: "Độ lệch chuẩn",   icon: "σ" },
-        { key: "min",      label: "Nhỏ nhất",         icon: "↓" },
-        { key: "max",      label: "Lớn nhất",         icon: "↑" },
-        { key: "q1",       label: "Q1 (25%)",         icon: "Q1" },
-        { key: "q3",       label: "Q3 (75%)",         icon: "Q3" },
-        { key: "iqr",      label: "IQR",              icon: "IQ" },
-        { key: "skewness", label: "Độ lệch (Skew)",  icon: "Sk" },
-        { key: "kurtosis", label: "Độ nhọn (Kurt)",  icon: "Ku" },
-        { key: "cv",       label: "Hệ số biến thiên", icon: "CV" },
-    ];
+  const container = document.getElementById('stats-cards');
+  if (!container) return;
 
-    statsCards.innerHTML = metrics.map(m => `
-        <div class="stat-card">
-            <span class="stat-icon">${m.icon}</span>
-            <span class="stat-value">${stats[m.key] ?? "—"}</span>
-            <span class="stat-label">${m.label}</span>
-        </div>
-    `).join("");
+  const cardDefs = [
+    { key: 'mean',     label: 'Trung bình',   icon: '📊', fmt: v => v.toFixed(2) },
+    { key: 'median',   label: 'Trung vị',     icon: '📍', fmt: v => v.toFixed(2) },
+    { key: 'std',      label: 'Độ lệch chuẩn',icon: '📐', fmt: v => v.toFixed(2) },
+    { key: 'min',      label: 'Nhỏ nhất',     icon: '⬇️', fmt: v => v.toFixed(1) },
+    { key: 'max',      label: 'Lớn nhất',     icon: '⬆️', fmt: v => v.toFixed(1) },
+    { key: 'q1',       label: 'Q1 (25%)',     icon: '◼️', fmt: v => v.toFixed(2) },
+    { key: 'q3',       label: 'Q3 (75%)',     icon: '◼️', fmt: v => v.toFixed(2) },
+    { key: 'iqr',      label: 'IQR',          icon: '↕️', fmt: v => v.toFixed(2) },
+    { key: 'skewness', label: 'Độ lệch',      icon: '〽️', fmt: v => v.toFixed(3) },
+    { key: 'kurtosis', label: 'Độ nhọn',      icon: '🔺', fmt: v => v.toFixed(3) },
+    { key: 'count',    label: 'Số mẫu',       icon: '🔢', fmt: v => v.toLocaleString() },
+    { key: 'missing',  label: 'Thiếu dữ liệu',icon: '❓', fmt: v => v },
+  ];
+
+  container.innerHTML = cardDefs.map(({ key, label, icon, fmt }) => `
+    <div class="stat-card" id="stat-${key}">
+      <div class="stat-icon">${icon}</div>
+      <div class="stat-label">${label}</div>
+      <div class="stat-value">${stats[key] !== undefined ? fmt(stats[key]) : 'N/A'}</div>
+    </div>
+  `).join('');
 }
+
 
 /**
  * Render kết quả kiểm định phân phối.
