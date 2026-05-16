@@ -91,13 +91,34 @@ class TestDetectEnsemble:
 
     def test_majority_voting(self, scores_with_outliers: pd.Series) -> None:
         """Chỉ các index được ≥ majority phương pháp flag mới là outlier."""
-        # TODO: Implement test
-        pass
+        outlier_indices, methods_detail = detect_ensemble(
+            scores_with_outliers,
+            methods=["iqr", "zscore"],
+            params={
+                "iqr": {"factor": 1.5},
+                "zscore": {"threshold": 1.5},
+            },
+            min_votes=2,
+        )
+
+        assert 0 in outlier_indices
+        assert 9 in outlier_indices
+        assert isinstance(methods_detail, dict)
 
     def test_returns_all_method_details(self, scores_with_outliers: pd.Series) -> None:
         """Phải trả về DetectionDetail cho mỗi method."""
-        # TODO: Implement test
-        pass
+        outlier_indices, methods_detail = detect_ensemble(
+            scores_with_outliers,
+            methods=["iqr", "zscore", "mad"],
+        )
+
+        assert "iqr" in methods_detail
+        assert "zscore" in methods_detail
+        assert "mad" in methods_detail
+
+        assert "outlier_indices" in methods_detail["iqr"]
+        assert "outlier_indices" in methods_detail["zscore"]
+        assert "outlier_indices" in methods_detail["mad"]
 
 
 class TestBuildOutlierReport:
