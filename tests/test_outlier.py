@@ -126,10 +126,53 @@ class TestBuildOutlierReport:
 
     def test_report_format(self, scores_with_outliers: pd.Series) -> None:
         """Mỗi OutlierRecord phải có row_index, value, methods_flagged, explanation."""
-        # TODO: Implement test
-        pass
+        outlier_indices, methods_detail = detect_ensemble(
+            scores_with_outliers,
+            methods=["iqr", "zscore"],
+            params={
+                "iqr": {"factor": 1.5},
+                "zscore": {"threshold": 1.5},
+            },
+        )
+
+        report = build_outlier_report(
+            scores=scores_with_outliers,
+            labels=None,
+            outlier_indices=outlier_indices,
+            methods_detail=methods_detail,
+        )
+
+        assert isinstance(report, list)
+        assert len(report) > 0
+
+        record = report[0]
+
+        assert "row_index" in record
+        assert "value" in record
+        assert "methods_flagged" in record
+        assert "explanation" in record
 
     def test_label_included_when_provided(self) -> None:
         """Nếu có labels, OutlierRecord phải chứa label."""
-        # TODO: Implement test
-        pass
+        scores = pd.Series([1.0, 6.0, 6.5, 7.0, 7.5, 15.0], dtype=float)
+        labels = pd.Series(["A", "B", "C", "D", "E", "F"])
+
+        outlier_indices, methods_detail = detect_ensemble(
+            scores,
+            methods=["iqr", "zscore"],
+            params={
+                "iqr": {"factor": 1.5},
+                "zscore": {"threshold": 1.5},
+            },
+        )
+
+        report = build_outlier_report(
+            scores=scores,
+            labels=labels,
+            outlier_indices=outlier_indices,
+            methods_detail=methods_detail,
+        )
+
+        assert len(report) > 0
+        assert "label" in report[0]
+        assert report[0]["label"] is not None
