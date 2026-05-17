@@ -323,10 +323,11 @@ function renderStats(stats) {
  *
  * @param {Object} dist - DistributionResult dict từ API.
  */
-function renderDistribution(dist) {
-    if (!dist) return;
+function renderDistribution(distribution) {
+    document.getElementById('distribution-section');
+    if (!distribution) return;
 
-    const testsHtml = (dist.tests || []).map(t => `
+    const testsHtml = (distribution.tests || []).map(t => `
         <tr>
             <td>${t.test_name}</td>
             <td>${t.statistic?.toFixed(4) ?? "—"}</td>
@@ -443,25 +444,6 @@ function renderOutliers(outliers) {
 function renderReport(report) {
     if (!report) return;
 
-    if (!report || report.length === 0) {
-        container.innerHTML = '<p class="no-outliers">Không phát hiện giá trị ngoại lai.</p>';
-        return;
-    }
-
-    const rows = outliers.map(o => {
-        const severity = Math.abs(o.z_score) > 3.5 ? 'extreme' : 'moderate';
-        return `
-      <tr class="outlier-row outlier-${severity}" data-index="${o.row_index}">
-        <td>${o.row_index}</td>
-        <td>${o.label || '-'}</td>
-        <td class="outlier-value">${o.value?.toFixed(2) ?? 'N/A'}</td>
-        <td>${o.methods_flagged?.join(', ') ?? '-'}</td>
-        <td>${o.z_score?.toFixed(3) ?? 'N/A'}</td>
-        <td class="explanation">${o.explanation ?? ''}</td>
-      </tr>
-    `;
-    }).join('');
-
     reportContent.innerHTML = `
         <div class="report-section" style="line-height:1.8">
             <p><strong>📌 Tóm tắt:</strong> ${report.summary}</p>
@@ -482,11 +464,39 @@ function renderReport(report) {
 // -------------------------------------------------------------------------- //
 
 /**
- * Hiển thị thông báo lỗi cho user.
+ * Hiển thị toast notification thay vì alert().
  *
- * @param {string} message - Thông báo lỗi.
+ * @param {string} message - Nội dung thông báo.
+ * @param {'success'|'error'|'warning'|'info'} type - Loại thông báo.
+ * @param {number} duration - Thời gian hiển thị (ms).
  */
+function showToast(message, type = 'info', duration = 4000) {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        document.body.appendChild(container);
+    }
+
+    const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `
+        <span class="toast-icon">${icons[type] || 'ℹ️'}</span>
+        <span class="toast-msg">${message}</span>
+        <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+    `;
+
+    container.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('toast-show'));
+
+    setTimeout(() => {
+        toast.classList.remove('toast-show');
+        setTimeout(() => toast.remove(), 300);
+    }, duration);
+}
+
+/** Wrapper ngắn gọn để dùng thay alert() */
 function showError(message) {
-    // Dùng alert đơn giản — Week 2 sẽ thay bằng toast notification
-    alert("⚠️ " + message);
+    showToast(message, 'error');
 }
