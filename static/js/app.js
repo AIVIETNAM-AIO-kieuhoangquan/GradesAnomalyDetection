@@ -402,15 +402,20 @@ function renderOutliers(outliers) {
         return;
     }
 
-    const rows = outliers.map(o => `
-        <tr class="outlier-row">
-            <td><strong>${o.label ?? "—"}</strong></td>
-            <td>${o.value}</td>
-            <td>${(o.z_score ?? 0).toFixed(2)}</td>
-            <td><small>${(o.methods_flagged || []).join(", ")}</small></td>
-            <td><small>${o.explanation ?? ""}</small></td>
-        </tr>
-    `).join("");
+    const rows = outliers.map(o => {
+        const severity = Math.abs(o.z_score) > 3.5 ? 'extreme' : 'moderate';
+        return `
+      <tr class="outlier-row outlier-${severity}" data-index="${o.row_index}">
+        <td>${o.row_index}</td>
+        <td>${o.label || '-'}</td>
+        <td class="outlier-value">${o.value?.toFixed(2) ?? 'N/A'}</td>
+        <td>${o.methods_flagged?.join(', ') ?? '-'}</td>
+        <td>${o.z_score?.toFixed(3) ?? 'N/A'}</td>
+        <td class="explanation">${o.explanation ?? ''}</td>
+      </tr>
+    `;
+    }).join('');
+
 
     outlierTable.innerHTML = `
         <div class="table-wrapper">
@@ -437,6 +442,25 @@ function renderOutliers(outliers) {
  */
 function renderReport(report) {
     if (!report) return;
+
+    if (!report || report.length === 0) {
+        container.innerHTML = '<p class="no-outliers">Không phát hiện giá trị ngoại lai.</p>';
+        return;
+    }
+
+    const rows = outliers.map(o => {
+        const severity = Math.abs(o.z_score) > 3.5 ? 'extreme' : 'moderate';
+        return `
+      <tr class="outlier-row outlier-${severity}" data-index="${o.row_index}">
+        <td>${o.row_index}</td>
+        <td>${o.label || '-'}</td>
+        <td class="outlier-value">${o.value?.toFixed(2) ?? 'N/A'}</td>
+        <td>${o.methods_flagged?.join(', ') ?? '-'}</td>
+        <td>${o.z_score?.toFixed(3) ?? 'N/A'}</td>
+        <td class="explanation">${o.explanation ?? ''}</td>
+      </tr>
+    `;
+    }).join('');
 
     reportContent.innerHTML = `
         <div class="report-section" style="line-height:1.8">
