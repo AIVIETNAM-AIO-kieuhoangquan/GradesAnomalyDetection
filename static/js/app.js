@@ -290,46 +290,51 @@ function renderResults(data) {
  * @param {Object} stats - DescriptiveStats dict từ API.
  */
 function renderStats(stats) {
-    const metrics = [
-        { key: "count",    label: "Số mẫu",          icon: "N" },
-        { key: "mean",     label: "Trung bình",       icon: "μ" },
-        { key: "median",   label: "Trung vị",         icon: "Md" },
-        { key: "std",      label: "Độ lệch chuẩn",   icon: "σ" },
-        { key: "min",      label: "Nhỏ nhất",         icon: "↓" },
-        { key: "max",      label: "Lớn nhất",         icon: "↑" },
-        { key: "q1",       label: "Q1 (25%)",         icon: "Q1" },
-        { key: "q3",       label: "Q3 (75%)",         icon: "Q3" },
-        { key: "iqr",      label: "IQR",              icon: "IQ" },
-        { key: "skewness", label: "Độ lệch (Skew)",  icon: "Sk" },
-        { key: "kurtosis", label: "Độ nhọn (Kurt)",  icon: "Ku" },
-        { key: "cv",       label: "Hệ số biến thiên", icon: "CV" },
+    const container = document.getElementById('stats-cards');
+    if (!container) return;
+
+    const cardDefs = [
+        { key: 'mean', label: 'Trung bình', icon: '📊', fmt: v => v.toFixed(2) },
+        { key: 'median', label: 'Trung vị', icon: '📍', fmt: v => v.toFixed(2) },
+        { key: 'std', label: 'Độ lệch chuẩn', icon: '📐', fmt: v => v.toFixed(2) },
+        { key: 'min', label: 'Nhỏ nhất', icon: '⬇️', fmt: v => v.toFixed(1) },
+        { key: 'max', label: 'Lớn nhất', icon: '⬆️', fmt: v => v.toFixed(1) },
+        { key: 'q1', label: 'Q1 (25%)', icon: '◼️', fmt: v => v.toFixed(2) },
+        { key: 'q3', label: 'Q3 (75%)', icon: '◼️', fmt: v => v.toFixed(2) },
+        { key: 'iqr', label: 'IQR', icon: '↕️', fmt: v => v.toFixed(2) },
+        { key: 'skewness', label: 'Độ lệch', icon: '〽️', fmt: v => v.toFixed(3) },
+        { key: 'kurtosis', label: 'Độ nhọn', icon: '🔺', fmt: v => v.toFixed(3) },
+        { key: 'count', label: 'Số mẫu', icon: '🔢', fmt: v => v.toLocaleString() },
+        { key: 'missing', label: 'Thiếu dữ liệu', icon: '❓', fmt: v => v },
     ];
 
-    statsCards.innerHTML = metrics.map(m => `
-        <div class="stat-card">
-            <span class="stat-icon">${m.icon}</span>
-            <span class="stat-value">${stats[m.key] ?? "—"}</span>
-            <span class="stat-label">${m.label}</span>
-        </div>
-    `).join("");
+    container.innerHTML = cardDefs.map(({ key, label, icon, fmt }) => `
+    <div class="stat-card" id="stat-${key}">
+      <div class="stat-icon">${icon}</div>
+      <div class="stat-label">${label}</div>
+      <div class="stat-value">${stats[key] !== undefined ? fmt(stats[key]) : 'N/A'}</div>
+    </div>
+  `).join('');
 }
+
 
 /**
  * Render kết quả kiểm định phân phối.
  *
  * @param {Object} dist - DistributionResult dict từ API.
  */
-function renderDistribution(dist) {
-    if (!dist) return;
+function renderDistribution(distribution) {
+    document.getElementById('distribution-section');
+    if (!distribution) return;
 
-    const testsHtml = (dist.tests || []).map(t => `
+    const testsHtml = (distribution.tests || []).map(t => `
         <tr>
             <td>${t.test_name}</td>
             <td>${t.statistic?.toFixed(4) ?? "—"}</td>
             <td>${t.p_value?.toFixed(4) ?? "N/A"}</td>
             <td>${t.is_normal
-                ? '<span style="color:#4CAF50">✔ Chuẩn</span>'
-                : '<span style="color:#FF4B4B">✘ Không chuẩn</span>'}</td>
+            ? '<span style="color:#4CAF50">✔ Chuẩn</span>'
+            : '<span style="color:#FF4B4B">✘ Không chuẩn</span>'}</td>
         </tr>
     `).join("");
 
@@ -359,21 +364,30 @@ function renderCharts(charts) {
     const config = { responsive: true, displayModeBar: false };
 
     const chartMap = {
-        "histogram_kde":   "chart-histogram",
-        "box_plot":        "chart-boxplot",
-        "violin_plot":     "chart-violin",
-        "qq_plot":         "chart-qqplot",
+        "histogram_kde": "chart-histogram",
+        "box_plot": "chart-boxplot",
+        "violin_plot": "chart-violin",
+        "qq_plot": "chart-qqplot",
         "scatter_outlier": "chart-scatter",
     };
 
-    Object.entries(chartMap).forEach(([key, containerId]) => {
-        if (charts[key]) {
-            try {
-                const parsed = JSON.parse(charts[key]);
-                Plotly.newPlot(containerId, parsed.data, parsed.layout, config);
-            } catch (e) {
-                console.warn(`Lỗi render chart ${key}:`, e);
-            }
+    Object.entries(chartMap).forEach(([key, elementId]) => {
+        const el = document.getElementById(elementId);
+        if (!el) return;
+        if (!charts[key]) {
+            el.innerHTML = '<p class="chart-empty">Biểu đồ chưa sẵn sàng</p>';
+            return;
+        }
+        try {
+            const figData = JSON.parse(charts[key]);
+            Plotly.newPlot(elementId, figData.data, figData.layout, {
+                responsive: true,
+                displayModeBar: true,
+                displaylogo: false,
+            });
+        } catch (err) {
+            console.error(`Lỗi render chart ${key}:`, err);
+            el.innerHTML = '<p class="chart-error">Không thể tải biểu đồ</p>';
         }
     });
 }
@@ -389,15 +403,20 @@ function renderOutliers(outliers) {
         return;
     }
 
-    const rows = outliers.map(o => `
-        <tr class="outlier-row">
-            <td><strong>${o.label ?? "—"}</strong></td>
-            <td>${o.value}</td>
-            <td>${(o.z_score ?? 0).toFixed(2)}</td>
-            <td><small>${(o.methods_flagged || []).join(", ")}</small></td>
-            <td><small>${o.explanation ?? ""}</small></td>
-        </tr>
-    `).join("");
+    const rows = outliers.map(o => {
+        const severity = Math.abs(o.z_score) > 3.5 ? 'extreme' : 'moderate';
+        return `
+      <tr class="outlier-row outlier-${severity}" data-index="${o.row_index}">
+        <td>${o.row_index}</td>
+        <td>${o.label || '-'}</td>
+        <td class="outlier-value">${o.value?.toFixed(2) ?? 'N/A'}</td>
+        <td>${o.methods_flagged?.join(', ') ?? '-'}</td>
+        <td>${o.z_score?.toFixed(3) ?? 'N/A'}</td>
+        <td class="explanation">${o.explanation ?? ''}</td>
+      </tr>
+    `;
+    }).join('');
+
 
     outlierTable.innerHTML = `
         <div class="table-wrapper">
@@ -445,11 +464,39 @@ function renderReport(report) {
 // -------------------------------------------------------------------------- //
 
 /**
- * Hiển thị thông báo lỗi cho user.
+ * Hiển thị toast notification thay vì alert().
  *
- * @param {string} message - Thông báo lỗi.
+ * @param {string} message - Nội dung thông báo.
+ * @param {'success'|'error'|'warning'|'info'} type - Loại thông báo.
+ * @param {number} duration - Thời gian hiển thị (ms).
  */
+function showToast(message, type = 'info', duration = 4000) {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        document.body.appendChild(container);
+    }
+
+    const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `
+        <span class="toast-icon">${icons[type] || 'ℹ️'}</span>
+        <span class="toast-msg">${message}</span>
+        <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+    `;
+
+    container.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('toast-show'));
+
+    setTimeout(() => {
+        toast.classList.remove('toast-show');
+        setTimeout(() => toast.remove(), 300);
+    }, duration);
+}
+
+/** Wrapper ngắn gọn để dùng thay alert() */
 function showError(message) {
-    // Dùng alert đơn giản — Week 2 sẽ thay bằng toast notification
-    alert("⚠️ " + message);
+    showToast(message, 'error');
 }

@@ -18,7 +18,6 @@ from typing import Any
 
 from flask import Flask, jsonify, render_template, request, send_file
 
-import config
 from config import (
     ALLOWED_EXTENSIONS,
     MAX_CONTENT_LENGTH,
@@ -55,6 +54,7 @@ _uploaded_data: dict[str, Any] = {}
 #  Helpers
 # --------------------------------------------------------------------------- #
 
+
 def _allowed_file(filename: str) -> bool:
     """Kiểm tra extension có được phép không."""
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -63,6 +63,7 @@ def _allowed_file(filename: str) -> bool:
 # --------------------------------------------------------------------------- #
 #  Routes
 # --------------------------------------------------------------------------- #
+
 
 @app.route("/")
 def index() -> str:
@@ -100,7 +101,9 @@ def api_upload() -> tuple[Any, int]:
 
     # 3. Kiểm tra allowed extension
     if not _allowed_file(file.filename):
-        return jsonify({"error": "Định dạng file không hỗ trợ (chỉ nhận .csv, .xlsx, .xls)"}), 400
+        return jsonify(
+            {"error": "Định dạng file không hỗ trợ (chỉ nhận .csv, .xlsx, .xls)"}
+        ), 400
 
     try:
         # 4. Đọc file → DataFrame (phải truyền cả filename để detect extension)
@@ -109,26 +112,31 @@ def api_upload() -> tuple[Any, int]:
         # 5. Validate schema 20 cột
         errors = validate_schema(df)
         if errors:
-            return jsonify({
-                "error": "Dữ liệu không khớp schema yêu cầu (20 cột)",
-                "details": errors
-            }), 400
+            return jsonify(
+                {
+                    "error": "Dữ liệu không khớp schema yêu cầu (20 cột)",
+                    "details": errors,
+                }
+            ), 400
 
         # 6. Lưu DataFrame vào memory
         _uploaded_data["df"] = df
 
         # 7. Trả về metadata + preview
-        return jsonify({
-            "column_stats": get_column_stats(df),
-            "preview": get_preview(df),
-            "row_count": len(df),
-            "col_count": len(df.columns)
-        }), 200
+        return jsonify(
+            {
+                "column_stats": get_column_stats(df),
+                "preview": get_preview(df),
+                "row_count": len(df),
+                "col_count": len(df.columns),
+            }
+        ), 200
 
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except Exception as e:
         import traceback
+
         traceback.print_exc()
         return jsonify({"error": f"Lỗi xử lý file: {str(e)}"}), 500
 
@@ -190,7 +198,9 @@ def api_analyze() -> tuple[Any, int]:
         )
 
         # 7. Xây dựng bảng outlier
-        outlier_records = build_outlier_report(full_df, outlier_indices, outlier_details)
+        outlier_records = build_outlier_report(
+            full_df, outlier_indices, outlier_details
+        )
 
         # 8. Tạo biểu đồ
         charts = generate_all_charts(target, outlier_indices)
@@ -199,18 +209,21 @@ def api_analyze() -> tuple[Any, int]:
         report = generate_full_report(stats, dist_results, outlier_records, len(target))
 
         # 10. Trả về JSON tổng hợp
-        return jsonify({
-            "stats": stats,
-            "distribution": dist_results,
-            "outliers": outlier_records,
-            "charts": charts,
-            "report": report,
-        }), 200
+        return jsonify(
+            {
+                "stats": stats,
+                "distribution": dist_results,
+                "outliers": outlier_records,
+                "charts": charts,
+                "report": report,
+            }
+        ), 200
 
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except Exception as e:
         import traceback
+
         traceback.print_exc()
         return jsonify({"error": f"Lỗi phân tích: {str(e)}"}), 500
 
