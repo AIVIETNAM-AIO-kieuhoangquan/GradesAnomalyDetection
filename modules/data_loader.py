@@ -40,23 +40,27 @@ from config import (
 #  Kiểu dữ liệu nội bộ
 # --------------------------------------------------------------------------- #
 
-ExtractedData = dict[str, Any]
-"""
-Dữ liệu đã trích xuất:
-{
-    "target": pd.Series,                  # Exam_Score (đã clean)
-    "numeric_features": pd.DataFrame,     # 6 cột numeric features
-    "categorical_features": pd.DataFrame, # 13 cột categorical features
-    "full_df": pd.DataFrame               # Toàn bộ DataFrame (đã clean)
-}
-"""
+class ExtractedData(dict):
+    """Dữ liệu đã trích xuất — dict hỗ trợ tuple unpacking.
+
+    Cho phép sử dụng cả hai cách:
+        data = extract_data(df)
+        target = data["target"]              # dict access
+
+        X_num, X_cat, y = extract_data(df)   # tuple unpacking
+    """
+
+    _UNPACK_ORDER = ("numeric_features", "categorical_features", "target")
+
+    def __iter__(self):
+        return iter(self[k] for k in self._UNPACK_ORDER)
 
 
 # --------------------------------------------------------------------------- #
 #  Hàm public
 # --------------------------------------------------------------------------- #
 
-def load_file(file: BinaryIO, filename: str) -> pd.DataFrame:
+def load_file(file: BinaryIO, filename: str = "", *, extension: str = "") -> pd.DataFrame:
     """Đọc file CSV hoặc Excel thành DataFrame.
 
     - Tự động detect encoding cho CSV (sử dụng chardet).
@@ -65,6 +69,7 @@ def load_file(file: BinaryIO, filename: str) -> pd.DataFrame:
     Args:
         file: File object (từ Flask request.files).
         filename: Tên file gốc, dùng để xác định extension.
+        extension: File extension trực tiếp (ưu tiên hơn filename nếu có).
 
     Returns:
         pd.DataFrame chưa xử lý (raw), giữ nguyên tên cột gốc.
@@ -72,7 +77,10 @@ def load_file(file: BinaryIO, filename: str) -> pd.DataFrame:
     Raises:
         ValueError: Nếu extension không được hỗ trợ hoặc file rỗng.
     """
-    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    if extension:
+        ext = extension.lower()
+    else:
+        ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
 
     if ext not in ALLOWED_EXTENSIONS:
         display = f".{ext}" if ext else "(no extension)"
@@ -227,12 +235,12 @@ def extract_data(df: pd.DataFrame) -> ExtractedData:
     # Full cleaned DataFrame
     full_df = valid_df.reset_index(drop=True)
 
-    return {
-        "target": target,
-        "numeric_features": numeric_df,
-        "categorical_features": categorical_df,
-        "full_df": full_df,
-    }
+    return ExtractedData(
+        target=target,
+        numeric_features=numeric_df,
+        categorical_features=categorical_df,
+        full_df=full_df,
+    )
 
 
 def clean_series(series: pd.Series) -> pd.Series:
