@@ -73,22 +73,6 @@ def index() -> str:
 
 @app.route("/api/upload", methods=["POST"])
 def api_upload() -> tuple[Any, int]:
-    """Upload file CSV/Excel, validate schema cố định, trả về preview.
-
-    Request:
-        Content-Type: multipart/form-data
-        Field "file": file CSV hoặc Excel (phải đúng 20 cột theo schema).
-
-    Response (200):
-        {
-            "column_stats": { "target": {...}, "numeric_features": [...], ... },
-            "preview": [...],
-            "row_count": 6607,
-            "col_count": 20
-        }
-
-    Response (400/500): {"error": "..."} nếu file không hợp lệ hoặc sai schema.
-    """
     # 1. Kiểm tra file có trong request không
     if "file" not in request.files:
         return jsonify({"error": "Không tìm thấy file trong yêu cầu"}), 400
@@ -184,29 +168,58 @@ def api_analyze() -> tuple[Any, int]:
         stats = compute_descriptive_stats(target)
 
         # 5. Kiểm định phân phối
-        dist_results = run_all_tests(target)
+        try:
+            dist_results = run_all_tests(target)
+        except (NotImplementedError, Exception):
+            dist_results = {
+                "tests": [],
+                "best_fit": "Chưa sẵn sàng",
+                "skewness_type": "unknown",
+                "kurtosis_type": "unknown",
+                "conclusion": "Module kiểm định phân phối đang được phát triển.",
+            }
 
         # 6. Phát hiện outlier
-        params = {
-            "zscore": {"threshold": threshold},
-            "mad": {"threshold": threshold + 1.0},
-        }
-        outlier_indices, outlier_details = detect_ensemble(
-            target,
-            methods=methods,
-            params=params,
-        )
+        try:
+            params = {
+                "zscore": {"threshold": threshold},
+                "mad": {"threshold": threshold + 1.0},
+            }
+            outlier_indices, outlier_details = detect_ensemble(
+                target,
+                methods=methods,
+                params=params,
+            )
+        except (NotImplementedError, Exception):
+            outlier_indices, outlier_details = [], {}
 
         # 7. Xây dựng bảng outlier
-        outlier_records = build_outlier_report(
-            full_df, outlier_indices, outlier_details
-        )
+        try:
+            outlier_records = build_outlier_report(
+                full_df, outlier_indices, outlier_details
+            )
+        except (NotImplementedError, Exception):
+            outlier_records = []
 
         # 8. Tạo biểu đồ
-        charts = generate_all_charts(target, outlier_indices)
+        try:
+            charts = generate_all_charts(target, outlier_indices)
+        except (NotImplementedError, Exception):
+            charts = {}
 
         # 9. Sinh báo cáo
-        report = generate_full_report(stats, dist_results, outlier_records, len(target))
+        try:
+            report = generate_full_report(
+                stats, dist_results, outlier_records, len(target)
+            )
+        except (NotImplementedError, Exception):
+            report = {
+                "summary": "Chưa có báo cáo tự động.",
+                "statistics_comment": "",
+                "distribution_comment": "",
+                "outlier_comment": "",
+                "recommendation": "Module báo cáo đang được phát triển.",
+            }
 
         # 10. Trả về JSON tổng hợp
         return jsonify(

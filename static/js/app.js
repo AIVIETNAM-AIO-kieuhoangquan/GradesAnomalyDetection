@@ -340,7 +340,7 @@ function renderDistribution(distribution) {
 
     distributionResults.innerHTML = `
         <h3>📉 Kiểm định phân phối</h3>
-        <p style="margin-bottom:1rem">${dist.conclusion}</p>
+        <p style="margin-bottom:1rem">${distribution.conclusion}</p>
         <div class="table-wrapper">
             <table>
                 <thead>
@@ -349,7 +349,7 @@ function renderDistribution(distribution) {
                 <tbody>${testsHtml}</tbody>
             </table>
         </div>
-        <p class="hint" style="margin-top:0.5rem">Phân phối fit tốt nhất: <strong>${dist.best_fit}</strong></p>
+        <p class="hint" style="margin-top:0.5rem">Phân phối fit tốt nhất: <strong>${distribution.best_fit}</strong></p>
     `;
 }
 
@@ -444,19 +444,52 @@ function renderOutliers(outliers) {
 function renderReport(report) {
     if (!report) return;
 
-    reportContent.innerHTML = `
-        <div class="report-section" style="line-height:1.8">
-            <p><strong>📌 Tóm tắt:</strong> ${report.summary}</p>
-            <hr style="border-color:rgba(255,255,255,0.1);margin:1rem 0">
-            <p><strong>📊 Thống kê:</strong> ${report.statistics_comment}</p>
-            <p><strong>📈 Phân phối:</strong> ${report.distribution_comment}</p>
-            <p><strong>🔴 Outlier:</strong> ${report.outlier_comment}</p>
-            <hr style="border-color:rgba(255,255,255,0.1);margin:1rem 0">
-            <h4>💡 Đề xuất hành động:</h4>
-            <div style="white-space:pre-line;margin-top:0.5rem">${report.recommendation}</div>
-        </div>
+    const sections = [
+        { icon: "📌", label: "Tóm tắt", text: report.summary },
+        { icon: "📊", label: "Thống kê", text: report.statistics_comment },
+        { icon: "📈", label: "Phân phối", text: report.distribution_comment },
+        { icon: "🔴", label: "Outlier", text: report.outlier_comment },
+    ];
+
+    let html = '<div class="report-section" style="line-height:1.8">';
+
+    // Only render sections that have content
+    sections.forEach(s => {
+        if (s.text && s.text.trim()) {
+            html += `<p><strong>${s.icon} ${s.label}:</strong> ${s.text}</p>`;
+        }
+    });
+
+    // Divider before recommendation
+    html += '<hr style="border-color:rgba(255,255,255,0.1);margin:1rem 0">';
+
+    // Recommendation section
+    html += '<h4>💡 Đề xuất hành động:</h4>';
+    html += `<div style="white-space:pre-line;margin-top:0.5rem">`;
+    html += report.recommendation || "—";
+    html += '</div>';
+
+    // Copy button
+    html += `
+        <button class="btn btn-secondary" style="margin-top:1.5rem"
+                onclick="copyReport()">
+            📋 Sao chép báo cáo
+        </button>
     `;
+
+    html += '</div>';
+    reportContent.innerHTML = html;
 }
+
+function copyReport() {
+    const text = reportContent.innerText;
+    navigator.clipboard.writeText(text).then(() => {
+        showToast("Đã sao chép báo cáo!", "success");
+    }).catch(() => {
+        showToast("Không thể sao chép vào clipboard", "error");
+    });
+}
+
 
 
 // -------------------------------------------------------------------------- //
