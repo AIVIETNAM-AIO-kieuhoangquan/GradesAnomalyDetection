@@ -102,6 +102,7 @@ async function handleFileUpload(file) {
         btnAnalyze.disabled = false;
 
         sectionMapping.scrollIntoView({ behavior: "smooth" });
+        showToast(`Upload thành công: ${data.row_count} dòng, ${data.col_count} cột`, "success");
 
     } catch (err) {
         showError("Lỗi kết nối server: " + err.message);
@@ -224,6 +225,24 @@ async function runAnalysis() {
     btnAnalyze.disabled = true;
     btnAnalyze.textContent = "⌛ Đang phân tích...";
 
+    // Show loading spinner overlay
+    sectionResults.removeAttribute("hidden");
+    let overlay = document.getElementById("loading-overlay");
+    if (!overlay) {
+        overlay = document.createElement("div");
+        overlay.id = "loading-overlay";
+        overlay.innerHTML = `
+            <div style="text-align:center;padding:3rem;color:var(--text-muted)">
+                <div class="spinner"></div>
+                <p style="margin-top:1rem">Đang Phân Tích Dữ Liệu...</p>
+            </div>
+        `;
+        sectionResults.appendChild(overlay);
+    } else {
+        overlay.style.display = "flex";
+    }
+    sectionResults.scrollIntoView({ behavior: "smooth" });
+
     // Thu thập methods đã chọn
     const methods = [];
     if (document.getElementById("method-iqr").checked) methods.push("iqr");
@@ -250,11 +269,18 @@ async function runAnalysis() {
             return;
         }
 
+        // Hide loading overlay
+        const overlay = document.getElementById("loading-overlay");
+        if (overlay) overlay.style.display = "none";
+
         renderResults(data);
         sectionResults.removeAttribute("hidden");
         sectionResults.scrollIntoView({ behavior: "smooth" });
+        showToast("Phân tích thành công!", "success");
 
     } catch (err) {
+        const overlay = document.getElementById("loading-overlay");
+        if (overlay) overlay.style.display = "none";
         showError("Lỗi phân tích: " + err.message);
     } finally {
         btnAnalyze.disabled = false;
