@@ -61,12 +61,12 @@ def _clean_numeric_series(scores: pd.Series) -> pd.Series:
     if cleaned_scores.empty:
         raise ValueError("Series điểm không được rỗng.")
 
-    return cleaned_scores.astype(float)
+    return cleaned_scores.astype(float).reset_index(drop=True)
 
 
 def _round_float(value: Any, digits: int = 4) -> float:
     """Làm tròn float và xử lý NaN/inf để response JSON an toàn hơn."""
-    if pd.isna(value) or np.isinf(value):
+    if value is None or pd.isna(value) or np.isinf(value):
         return 0.0
 
     return round(float(value), digits)
@@ -161,7 +161,7 @@ def compute_descriptive_stats(scores: pd.Series) -> DescriptiveStats:
 
 def compute_frequency_table(
     scores: pd.Series, bins: int | list[float] | None = None
-) -> list[dict[str, Any]]:
+) -> pd.DataFrame:
     """Tạo bảng tần số (frequency table) cho dữ liệu.
 
     Nếu bins=None, tự động chọn số bins bằng Sturges' rule hoặc Freedman-Diaconis.
@@ -172,11 +172,13 @@ def compute_frequency_table(
               Nếu None, tự động tính.
 
     Returns:
-        List of dict, mỗi dict chứa:
+        DataFrame chứa:
         - "bin_start": float
         - "bin_end": float
         - "count": int
         - "frequency": float (tỉ lệ %)
+        - "percentage": float (tỉ lệ %)
+        - "relative_frequency": float (tỉ lệ 0-1)
         Ví dụ: [{"bin_start": 0, "bin_end": 2, "count": 5, "frequency": 4.2}]
     """
     # TODO: Implement — pd.cut hoặc np.histogram, tính tỉ lệ %
@@ -191,23 +193,26 @@ def compute_frequency_table(
     if total == 0:
         raise ValueError("Không thể tạo bảng tần số từ dữ liệu rỗng.")
 
-    frequency_table: list[dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
 
     for index, count in enumerate(counts):
         bin_start = bin_edges[index]
         bin_end = bin_edges[index + 1]
-        frequency = count / total * 100
+        relative_frequency = count / total
+        percentage = relative_frequency * 100
 
-        frequency_table.append(
+        rows.append(
             {
                 "bin_start": _round_float(bin_start),
                 "bin_end": _round_float(bin_end),
                 "count": int(count),
-                "frequency": _round_float(frequency),
+                "frequency": _round_float(percentage),
+                "percentage": _round_float(percentage),
+                "relative_frequency": _round_float(relative_frequency),
             }
         )
 
-    return frequency_table
+    return pd.DataFrame(rows)
 
 
 def compute_percentile(scores: pd.Series, percentile: float) -> float:
