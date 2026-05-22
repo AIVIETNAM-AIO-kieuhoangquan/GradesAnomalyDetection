@@ -449,10 +449,11 @@ function renderOutliers(outliers) {
             <table>
                 <thead>
                     <tr>
+                        <th>Chỉ mục</th>
                         <th>Nhãn</th>
                         <th>Giá trị</th>
-                        <th>Z-Score</th>
                         <th>Phương pháp</th>
+                        <th>Z-Score</th>
                         <th>Giải thích</th>
                     </tr>
                 </thead>
@@ -543,7 +544,7 @@ function showToast(message, type = 'info', duration = 4000) {
     toast.innerHTML = `
         <span class="toast-icon">${icons[type] || 'ℹ️'}</span>
         <span class="toast-msg">${message}</span>
-        <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+        <button class="toast-close" aria-label="Đóng" onclick="this.parentElement.remove()">×</button>
     `;
 
     container.appendChild(toast);
