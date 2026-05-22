@@ -5,7 +5,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description"
-        content="StudentScore — Phân tích phân phối và phát hiện outlier trên dữ liệu điểm học sinh">
+        content="StudentScore — Phân tích phân phối và phát hiện outlier trên dữ liệu điểm học sinh. Công cụ trực tuyến miễn phí.">
+    <meta name="keywords" content="phân tích điểm, outlier detection, phân phối, giáo dục, statistics">
+    <meta name="author" content="StudentScore Team">
+    <meta name="theme-color" content="#0d0d1a">
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="StudentScore — Phân tích Phân phối & Outlier">
+    <meta property="og:description" content="Phân tích phân phối điểm thi và phát hiện giá trị ngoại lai tự động.">
+    <meta property="og:type" content="website">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="StudentScore — Phân tích Phân phối & Outlier">
+    <meta name="twitter:description" content="Phân tích phân phối điểm thi và phát hiện giá trị ngoại lai tự động.">
+
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎓</text></svg>">
+
     <title>StudentScore — Phân tích Phân phối & Outlier</title>
 
     <!-- Google Fonts -->
@@ -179,6 +196,9 @@
         </section>
 
     </main>
+
+    <!-- Toast notifications container -->
+    <div id="toast-container"></div>
 
     <!-- App JS -->
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
