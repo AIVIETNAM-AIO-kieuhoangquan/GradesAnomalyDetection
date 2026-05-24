@@ -1,181 +1,211 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="StudentScore — Phân tích phân phối và phát hiện outlier trên dữ liệu điểm học sinh">
-    <title>StudentScore — Phân tích Phân phối & Outlier</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="StudentScore — Phân tích phân phối và phát hiện outlier trên dữ liệu điểm học sinh.">
+  <meta name="theme-color" content="#06070f">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎓</text></svg>">
+  <title>StudentScore — Phân tích Phân phối &amp; Outlier</title>
 
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
-
-    <!-- Plotly.js -->
-    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
-
-    <!-- App CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <!-- Plotly.js -->
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <!-- App CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
+
 <body>
 
-    <!-- ================================================================= -->
-    <!--  HEADER                                                           -->
-    <!-- ================================================================= -->
-    <header id="app-header">
-        <h1>🎓 StudentScore</h1>
-        <p class="subtitle">Phân tích Phân phối & Phát hiện Outlier</p>
-    </header>
+<!-- ═══════════════════════════════════════════════════ HEADER -->
+<header id="app-header">
+  <div class="header-badge">
+    <span class="badge-dot"></span>
+    AI-powered Analytics
+  </div>
+  <h1>StudentScore</h1>
+  <p class="subtitle">Phân tích thống kê & Phát hiện Outlier thông minh trên dữ liệu điểm học sinh</p>
+</header>
 
-    <main id="app-main">
+<main id="app-main">
 
-        <!-- ============================================================= -->
-        <!--  STEP 1: Upload File                                          -->
-        <!-- ============================================================= -->
-        <section id="section-upload" class="card">
-            <h2>📁 Bước 1: Upload dữ liệu</h2>
+  <!-- Step progress bar -->
+  <div class="steps-bar" id="steps-bar">
+    <div class="step active" id="step-1">
+      <div class="step-num">1</div>
+      <div class="step-label">Upload</div>
+    </div>
+    <div class="step-line"></div>
+    <div class="step" id="step-2">
+      <div class="step-num">2</div>
+      <div class="step-label">Cấu hình</div>
+    </div>
+    <div class="step-line"></div>
+    <div class="step" id="step-3">
+      <div class="step-num">3</div>
+      <div class="step-label">Phân tích</div>
+    </div>
+    <div class="step-line"></div>
+    <div class="step" id="step-4">
+      <div class="step-num">4</div>
+      <div class="step-label">Kết quả</div>
+    </div>
+  </div>
 
-            <div id="drop-zone" class="drop-zone">
-                <p>Kéo thả file CSV / Excel vào đây</p>
-                <p class="hint">hoặc click để chọn file</p>
-                <input type="file" id="file-input" accept=".csv,.xlsx,.xls" hidden>
-            </div>
+  <!-- ═══════════════════════════════════════════════ STEP 1: Upload -->
+  <section id="section-upload" class="card">
+    <div class="section-label">Bước 1</div>
+    <h2>📁 Upload dữ liệu</h2>
 
-            <div id="upload-status" class="status-bar" hidden>
-                <span id="upload-filename"></span>
-                <span id="upload-info"></span>
-            </div>
+    <div id="drop-zone" class="drop-zone">
+      <span class="drop-icon">📊</span>
+      <p>Kéo thả file CSV hoặc Excel vào đây</p>
+      <p class="hint">Hỗ trợ .csv · .xlsx · .xls · Tối đa 50MB</p>
+      <input type="file" id="file-input" accept=".csv,.xlsx,.xls" hidden>
+    </div>
 
-            <button id="btn-sample-data" class="btn btn-secondary">
-                📥 Dùng dữ liệu mẫu
-            </button>
-        </section>
+    <div id="upload-status" class="status-bar" hidden>
+      <span class="status-icon">✅</span>
+      <span id="upload-filename"></span>
+      <span id="upload-info"></span>
+    </div>
 
-        <!-- ============================================================= -->
-        <!--  STEP 2: Column Mapping                                       -->
-        <!-- ============================================================= -->
-        <section id="section-mapping" class="card" hidden>
-            <h2>🔗 Bước 2: Gán vai trò cột</h2>
+    <div style="display:flex;gap:.75rem;flex-wrap:wrap">
+      <button id="btn-sample-data" class="btn btn-secondary">
+        📥 Dùng dữ liệu mẫu
+      </button>
+    </div>
+  </section>
 
-            <div class="mapping-grid">
-                <div class="mapping-item">
-                    <label for="select-score">Cột phân tích (score) <span class="required">*</span></label>
-                    <select id="select-score"></select>
-                </div>
-                <div class="mapping-item">
-                    <label for="select-label">Cột nhãn (label)</label>
-                    <select id="select-label">
-                        <option value="">— Không chọn —</option>
-                    </select>
-                </div>
-                <div class="mapping-item">
-                    <label for="select-group">Cột nhóm (group)</label>
-                    <select id="select-group">
-                        <option value="">— Không chọn —</option>
-                    </select>
-                </div>
-            </div>
+  <!-- ═══════════════════════════════════════════════ STEP 2: Mapping -->
+  <section id="section-mapping" class="card" hidden>
+    <div class="section-label">Bước 2</div>
+    <h2>🔗 Gán vai trò cột</h2>
 
-            <!-- Data Preview Table -->
-            <div id="preview-container" hidden>
-                <h3>📋 Preview dữ liệu</h3>
-                <div class="table-wrapper">
-                    <table id="preview-table"></table>
-                </div>
-            </div>
-        </section>
+    <div class="mapping-grid">
+      <div class="mapping-item">
+        <label for="select-score">Cột phân tích (score) <span class="required">*</span></label>
+        <select id="select-score"></select>
+      </div>
+      <div class="mapping-item">
+        <label for="select-label">Cột nhãn (label)</label>
+        <select id="select-label"><option value="">— Không chọn —</option></select>
+      </div>
+      <div class="mapping-item">
+        <label for="select-group">Cột nhóm (group)</label>
+        <select id="select-group"><option value="">— Không chọn —</option></select>
+      </div>
+    </div>
 
-        <!-- ============================================================= -->
-        <!--  STEP 3: Config & Run                                         -->
-        <!-- ============================================================= -->
-        <section id="section-config" class="card" hidden>
-            <h2>⚙️ Bước 3: Cấu hình phân tích</h2>
+    <div id="preview-container" hidden>
+      <h3>📋 Preview dữ liệu (5 hàng đầu)</h3>
+      <div class="table-wrapper">
+        <table id="preview-table"></table>
+      </div>
+    </div>
+  </section>
 
-            <div class="config-grid">
-                <!-- Phương pháp outlier -->
-                <div class="config-item">
-                    <label>Phương pháp Outlier:</label>
-                    <div class="checkbox-group">
-                        <label><input type="checkbox" id="method-iqr" value="iqr" checked> IQR</label>
-                        <label><input type="checkbox" id="method-zscore" value="zscore" checked> Z-Score</label>
-                        <label><input type="checkbox" id="method-mad" value="mad"> Modified Z (MAD)</label>
-                        <label><input type="checkbox" id="method-dbscan" value="dbscan"> DBSCAN</label>
-                    </div>
-                </div>
+  <!-- ═══════════════════════════════════════════════ STEP 3: Config -->
+  <section id="section-config" class="card" hidden>
+    <div class="section-label">Bước 3</div>
+    <h2>⚙️ Cấu hình phân tích</h2>
 
-                <!-- Threshold -->
-                <div class="config-item">
-                    <label for="threshold-slider">Threshold: <span id="threshold-value">2.5</span></label>
-                    <input type="range" id="threshold-slider" min="1.5" max="4.0" step="0.1" value="2.5">
-                </div>
+    <div class="config-grid">
+      <div class="config-item">
+        <label>Phương pháp phát hiện Outlier</label>
+        <div class="checkbox-group">
+          <label><input type="checkbox" id="method-iqr"        value="iqr"        checked> IQR</label>
+          <label><input type="checkbox" id="method-zscore"     value="zscore"     checked> Z-Score</label>
+          <label><input type="checkbox" id="method-percentile" value="percentile" checked> Percentile P5/P95</label>
+          <label><input type="checkbox" id="method-mad"        value="mad"              > Modified Z (MAD)</label>
+          <label><input type="checkbox" id="method-dbscan"     value="dbscan"           > DBSCAN</label>
+        </div>
+      </div>
 
-                <!-- Group filter -->
-                <div class="config-item" id="group-filter-container" hidden>
-                    <label for="select-group-value">Nhóm phân tích:</label>
-                    <select id="select-group-value">
-                        <option value="">— Tất cả —</option>
-                    </select>
-                </div>
-            </div>
+      <div class="config-item">
+        <label for="threshold-slider">Ngưỡng Z-Score</label>
+        <div class="slider-row">
+          <span class="slider-val" id="threshold-value">2.5</span>
+          <input type="range" id="threshold-slider" min="1.5" max="4.0" step="0.1" value="2.5">
+        </div>
+        <p class="hint" style="margin-top:.5rem">Điểm có |z| vượt ngưỡng này được coi là nghi vấn outlier</p>
+      </div>
 
-            <button id="btn-analyze" class="btn btn-primary" disabled>
-                🔍 Phân tích
-            </button>
-        </section>
+      <div class="config-item" id="group-filter-container" hidden>
+        <label for="select-group-value">Nhóm phân tích</label>
+        <select id="select-group-value"><option value="">— Tất cả —</option></select>
+      </div>
+    </div>
 
-        <!-- ============================================================= -->
-        <!--  STEP 4: Results Dashboard                                    -->
-        <!-- ============================================================= -->
-        <section id="section-results" hidden>
+    <button id="btn-analyze" class="btn btn-primary btn-lg" disabled>
+      🔍 Phân tích ngay
+    </button>
+  </section>
 
-            <!-- Statistics Cards -->
-            <div id="stats-cards" class="stats-grid"></div>
+  <!-- ═══════════════════════════════════════════════ STEP 4: Results -->
+  <section id="section-results" hidden>
 
-            <!-- Charts Grid -->
-            <div class="charts-grid">
-                <div class="card chart-card">
-                    <h3>📊 Histogram + KDE</h3>
-                    <div id="chart-histogram"></div>
-                </div>
-                <div class="card chart-card">
-                    <h3>📦 Box Plot</h3>
-                    <div id="chart-boxplot"></div>
-                </div>
-                <div class="card chart-card">
-                    <h3>🎻 Violin Plot</h3>
-                    <div id="chart-violin"></div>
-                </div>
-                <div class="card chart-card">
-                    <h3>📈 Q-Q Plot</h3>
-                    <div id="chart-qqplot"></div>
-                </div>
-                <div class="card chart-card full-width">
-                    <h3>🔴 Scatter — Outlier Highlight</h3>
-                    <div id="chart-scatter"></div>
-                </div>
-            </div>
+    <!-- Results header bar -->
+    <div class="results-header" id="results-header" hidden>
+      <h2>📊 Kết quả phân tích</h2>
+      <div class="results-meta" id="results-meta"></div>
+    </div>
 
-            <!-- Distribution Test Results -->
-            <div id="distribution-results" class="card"></div>
+    <!-- Statistics Cards -->
+    <div id="stats-cards" class="stats-grid"></div>
 
-            <!-- Outlier Table -->
-            <div id="outlier-results" class="card">
-                <h3>🔴 Outlier Detection Results</h3>
-                <div class="table-wrapper">
-                    <table id="outlier-table"></table>
-                </div>
-            </div>
+    <!-- Charts Grid -->
+    <div class="section-title"><h2>📈 Biểu đồ trực quan</h2></div>
+    <div class="charts-grid">
+      <div class="card chart-card">
+        <h3>📊 Histogram + KDE <span class="chart-tag">Phân phối</span></h3>
+        <div id="chart-histogram"></div>
+      </div>
+      <div class="card chart-card">
+        <h3>📦 Box Plot <span class="chart-tag">Tứ phân vị</span></h3>
+        <div id="chart-boxplot"></div>
+      </div>
+      <div class="card chart-card">
+        <h3>🎻 Violin Plot <span class="chart-tag">Mật độ</span></h3>
+        <div id="chart-violin"></div>
+      </div>
+      <div class="card chart-card">
+        <h3>📈 Q-Q Plot <span class="chart-tag">Chuẩn tắc</span></h3>
+        <div id="chart-qqplot"></div>
+      </div>
+      <div class="card chart-card full-width">
+        <h3>🔴 Scatter — Outlier Highlight <span class="chart-tag">Ngoại lai</span></h3>
+        <div id="chart-scatter"></div>
+      </div>
+      <div class="card chart-card full-width">
+        <h3>🟡 Strip Plot — Phân bố từng điểm <span class="chart-tag">Individual</span></h3>
+        <div id="chart-strip"></div>
+      </div>
+    </div>
 
-            <!-- Report -->
-            <div id="report-section" class="card">
-                <h3>💡 Báo cáo & Đề xuất</h3>
-                <div id="report-content"></div>
-            </div>
-        </section>
+    <!-- Distribution Results -->
+    <div class="section-title"><h2>🔬 Kiểm định phân phối</h2></div>
+    <div id="distribution-results" class="card"></div>
 
-    </main>
+    <!-- Outlier Table -->
+    <div class="section-title"><h2>🚨 Outlier Detection</h2></div>
+    <div id="outlier-results" class="card">
+      <h3>Danh sách giá trị ngoại lai</h3>
+      <div class="table-wrapper">
+        <table id="outlier-table"></table>
+      </div>
+    </div>
 
-    <!-- App JS -->
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <!-- Report -->
+    <div class="section-title"><h2>💡 Báo cáo & Khuyến nghị</h2></div>
+    <div id="report-section" class="card">
+      <div id="report-content"></div>
+    </div>
+
+  </section>
+
+</main>
+
+<div id="toast-container"></div>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>

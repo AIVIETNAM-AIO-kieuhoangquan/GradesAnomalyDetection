@@ -48,7 +48,7 @@ const reportContent = document.getElementById("report-content");
 //  State
 // -------------------------------------------------------------------------- //
 
-/** @type {{ columns: Array, preview: Array, row_count: number } | null} */
+/** @type {{ column_stats: Object, preview: Array, row_count: number } | null} */
 let uploadedMeta = null;
 
 
@@ -64,21 +64,90 @@ let uploadedMeta = null;
  * @returns {Promise<void>}
  */
 async function handleFileUpload(file) {
-    // TODO: Implement
-    // 1. Tạo FormData, append file
-    // 2. fetch POST /api/upload
-    // 3. Parse response JSON
-    // 4. Lưu vào uploadedMeta
-    // 5. Gọi renderColumnMapping(response)
-    // 6. Hiển thị upload status (filename, row count)
-    // 7. Show section-mapping & section-config
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+        const response = await fetch("/api/upload", {
+            method: "POST",
+            body: formData,
+            // KHÔNG set Content-Type — browser tự set multipart/form-data + boundary
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            showError(data.error || "Upload thất bại");
+            if (data.details) console.warn("Schema errors:", data.details);
+            return;
+        }
+
+        // Lưu metadata
+        uploadedMeta = data;
+
+        // Hiển thị upload status
+        uploadFilename.textContent = file.name;
+        uploadInfo.textContent = `${data.row_count} dòng · ${data.col_count} cột`;
+        uploadStatus.removeAttribute("hidden");
+
+        // Render preview table
+        renderPreviewTable(data.preview);
+
+        // Render column mapping dropdowns
+        renderColumnMapping(data.column_stats);
+
+        // Hiện các section tiếp theo
+        sectionMapping.removeAttribute("hidden");
+        sectionConfig.removeAttribute("hidden");
+        btnAnalyze.disabled = false;
+
+        sectionMapping.scrollIntoView({ behavior: "smooth" });
+        showToast(`Upload thành công: ${data.row_count} dòng, ${data.col_count} cột`, "success");
+
+    } catch (err) {
+        showError("Lỗi kết nối server: " + err.message);
+    }
 }
 
-// TODO: Implement event listeners
-// - dropZone: dragover, dragleave, drop → gọi handleFileUpload
-// - dropZone: click → trigger fileInput.click()
-// - fileInput: change → handleFileUpload(files[0])
-// - btnSampleData: click → fetch /api/sample-data, rồi upload nó
+// --- Drag and drop ---
+dropZone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    dropZone.classList.add("drag-over");
+});
+
+dropZone.addEventListener("dragleave", () => {
+    dropZone.classList.remove("drag-over");
+});
+
+dropZone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropZone.classList.remove("drag-over");
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileUpload(file);
+});
+
+// --- Click to select file ---
+dropZone.addEventListener("click", () => fileInput.click());
+
+fileInput.addEventListener("change", () => {
+    if (fileInput.files[0]) handleFileUpload(fileInput.files[0]);
+});
+
+// --- Sample data ---
+btnSampleData.addEventListener("click", async () => {
+    try {
+        const response = await fetch("/api/sample-data");
+        if (!response.ok) {
+            showError("Không thể tải dữ liệu mẫu từ server");
+            return;
+        }
+        const blob = await response.blob();
+        const file = new File([blob], "scores_sample.csv", { type: "text/csv" });
+        handleFileUpload(file);
+    } catch (err) {
+        showError("Không thể tải dữ liệu mẫu: " + err.message);
+    }
+});
 
 
 // -------------------------------------------------------------------------- //
@@ -87,19 +156,32 @@ async function handleFileUpload(file) {
 
 /**
  * Render dropdown options cho Column Mapping dựa trên metadata cột.
- * - select-score: chỉ hiển thị cột numeric
- * - select-label: hiển thị tất cả cột
- * - select-group: hiển thị cột categorical
+ * Vì schema cố định, Exam_Score luôn là target nên auto-select.
  *
- * @param {{ columns: Array<{name: string, category: string}> }} meta
+ * @param {{ target: Object, numeric_features: Array, categorical_features: Array }} meta
  */
 function renderColumnMapping(meta) {
-    // TODO: Implement
-    // 1. Clear existing options
-    // 2. Populate select-score với numeric columns
-    // 3. Populate select-label với all columns + "— Không chọn —"
-    // 4. Populate select-group với categorical columns + "— Không chọn —"
-    // 5. Enable btn-analyze
+    // Clear options
+    selectScore.innerHTML = "";
+    selectLabel.innerHTML = '<option value="">— Không chọn —</option>';
+    selectGroup.innerHTML = '<option value="">— Không chọn —</option>';
+
+    // Score: target (Exam_Score) luôn đứng đầu, auto-selected
+    const target = meta.target;
+    selectScore.add(new Option(target.name, target.name, true, true));
+    meta.numeric_features.forEach(col => {
+        selectScore.add(new Option(col.name, col.name));
+    });
+
+    // Label: tất cả cột
+    [target, ...meta.numeric_features, ...meta.categorical_features].forEach(col => {
+        selectLabel.add(new Option(col.name, col.name));
+    });
+
+    // Group: chỉ categorical
+    meta.categorical_features.forEach(col => {
+        selectGroup.add(new Option(col.name, col.name));
+    });
 }
 
 /**
@@ -108,11 +190,26 @@ function renderColumnMapping(meta) {
  * @param {Array<Object>} rows - Mảng objects, mỗi object là 1 dòng.
  */
 function renderPreviewTable(rows) {
-    // TODO: Implement
-    // 1. Tạo thead từ Object.keys(rows[0])
-    // 2. Tạo tbody từ rows
-    // 3. Gán vào previewTable.innerHTML
-    // 4. Show previewContainer
+    if (!rows || rows.length === 0) return;
+
+    const headers = Object.keys(rows[0]);
+
+    let html = "<thead><tr>";
+    headers.forEach(h => html += `<th>${h}</th>`);
+    html += "</tr></thead><tbody>";
+
+    rows.forEach(row => {
+        html += "<tr>";
+        headers.forEach(h => {
+            const val = row[h] ?? "";
+            html += `<td>${val}</td>`;
+        });
+        html += "</tr>";
+    });
+    html += "</tbody>";
+
+    previewTable.innerHTML = html;
+    previewContainer.removeAttribute("hidden");
 }
 
 
@@ -123,23 +220,81 @@ function renderPreviewTable(rows) {
 /**
  * Thu thập config từ UI và gửi POST /api/analyze.
  * Render kết quả lên dashboard.
- *
- * @returns {Promise<void>}
  */
 async function runAnalysis() {
-    // TODO: Implement
-    // 1. Build column_mapping từ select values
-    // 2. Build methods array từ checked checkboxes
-    // 3. Get threshold từ slider
-    // 4. Get group_value (nếu có)
-    // 5. fetch POST /api/analyze với JSON body
-    // 6. Parse response
-    // 7. Gọi renderStats, renderCharts, renderOutliers, renderReport
-    // 8. Show section-results, scroll to it
+    btnAnalyze.disabled = true;
+    btnAnalyze.textContent = "⌛ Đang phân tích...";
+
+    // Show loading spinner overlay
+    sectionResults.removeAttribute("hidden");
+    let overlay = document.getElementById("loading-overlay");
+    if (!overlay) {
+        overlay = document.createElement("div");
+        overlay.id = "loading-overlay";
+        overlay.innerHTML = `
+            <div style="text-align:center;padding:3rem;color:var(--text-muted)">
+                <div class="spinner"></div>
+                <p style="margin-top:1rem">Đang Phân Tích Dữ Liệu...</p>
+            </div>
+        `;
+        sectionResults.appendChild(overlay);
+    } else {
+        overlay.style.display = "flex";
+    }
+    sectionResults.scrollIntoView({ behavior: "smooth" });
+
+    // Thu thập methods đã chọn
+    const methods = [];
+    if (document.getElementById("method-iqr").checked) methods.push("iqr");
+    if (document.getElementById("method-zscore").checked) methods.push("zscore");
+    if (document.getElementById("method-mad").checked) methods.push("mad");
+    if (document.getElementById("method-dbscan").checked) methods.push("dbscan");
+    if (document.getElementById("method-percentile")?.checked) methods.push("percentile");
+
+    const body = {
+        methods: methods.length > 0 ? methods : ["iqr", "zscore", "percentile"],
+        threshold: parseFloat(thresholdSlider.value),
+        min_votes: 1,
+    };
+
+    try {
+        const response = await fetch("/api/analyze", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            showError(data.error || "Phân tích thất bại");
+            return;
+        }
+
+        // Hide loading overlay
+        const overlay = document.getElementById("loading-overlay");
+        if (overlay) overlay.style.display = "none";
+
+        renderResults(data);
+        sectionResults.removeAttribute("hidden");
+        sectionResults.scrollIntoView({ behavior: "smooth" });
+        showToast("Phân tích thành công!", "success");
+
+    } catch (err) {
+        const overlay = document.getElementById("loading-overlay");
+        if (overlay) overlay.style.display = "none";
+        showError("Lỗi phân tích: " + err.message);
+    } finally {
+        btnAnalyze.disabled = false;
+        btnAnalyze.textContent = "🔍 Phân tích";
+    }
 }
 
-// TODO: btnAnalyze.addEventListener("click", runAnalysis)
-// TODO: thresholdSlider.addEventListener("input", updateThresholdDisplay)
+btnAnalyze.addEventListener("click", runAnalysis);
+
+thresholdSlider.addEventListener("input", () => {
+    thresholdValue.textContent = parseFloat(thresholdSlider.value).toFixed(1);
+});
 
 
 // -------------------------------------------------------------------------- //
@@ -147,26 +302,143 @@ async function runAnalysis() {
 // -------------------------------------------------------------------------- //
 
 /**
+ * Dispatcher: gọi tất cả các hàm render sau khi nhận response từ API.
+ */
+function renderResults(data) {
+    renderStats(data.stats);
+    renderDistribution(data.distribution);
+    renderCharts(data.charts);
+    renderOutliers(data.outliers);
+    renderReport(data.report);
+}
+
+/**
  * Render statistics cards (mean, median, std, ...) vào stats-grid.
  *
  * @param {Object} stats - DescriptiveStats dict từ API.
  */
 function renderStats(stats) {
-    // TODO: Implement
-    // 1. Định nghĩa danh sách metrics cần hiển thị (key, label, icon)
-    // 2. Tạo HTML card cho mỗi metric
-    // 3. Gán vào statsCards.innerHTML
+    const container = document.getElementById('stats-cards');
+    if (!container) return;
+
+    const cardDefs = [
+        { key: 'mean', label: 'Trung bình', icon: '📊', fmt: v => v.toFixed(2) },
+        { key: 'median', label: 'Trung vị', icon: '📍', fmt: v => v.toFixed(2) },
+        { key: 'std', label: 'Độ lệch chuẩn', icon: '📐', fmt: v => v.toFixed(2) },
+        { key: 'min', label: 'Nhỏ nhất', icon: '⬇️', fmt: v => v.toFixed(1) },
+        { key: 'max', label: 'Lớn nhất', icon: '⬆️', fmt: v => v.toFixed(1) },
+        { key: 'q1', label: 'Q1 (25%)', icon: '◼️', fmt: v => v.toFixed(2) },
+        { key: 'q3', label: 'Q3 (75%)', icon: '◼️', fmt: v => v.toFixed(2) },
+        { key: 'iqr', label: 'IQR', icon: '↕️', fmt: v => v.toFixed(2) },
+        { key: 'skewness', label: 'Độ lệch', icon: '〽️', fmt: v => v.toFixed(3) },
+        { key: 'kurtosis', label: 'Độ nhọn', icon: '🔺', fmt: v => v.toFixed(3) },
+        { key: 'count', label: 'Số mẫu', icon: '🔢', fmt: v => v.toLocaleString() },
+        { key: 'missing', label: 'Thiếu dữ liệu', icon: '❓', fmt: v => v },
+    ];
+
+    container.innerHTML = cardDefs.map(({ key, label, icon, fmt }) => `
+    <div class="stat-card" id="stat-${key}">
+      <div class="stat-icon">${icon}</div>
+      <div class="stat-label">${label}</div>
+      <div class="stat-value">${stats[key] !== undefined ? fmt(stats[key]) : 'N/A'}</div>
+    </div>
+  `).join('');
+}
+
+
+/**
+ * Render kết quả kiểm định phân phối.
+ *
+ * @param {Object} dist - DistributionResult dict từ API.
+ */
+function renderDistribution(distribution) {
+    document.getElementById('distribution-section');
+    if (!distribution) return;
+
+    const testsHtml = (distribution.tests || []).map(t => `
+        <tr>
+            <td>${t.test_name}</td>
+            <td>${t.statistic?.toFixed(4) ?? "—"}</td>
+            <td>${t.p_value?.toFixed(4) ?? "N/A"}</td>
+            <td>${t.is_normal
+            ? '<span style="color:#4CAF50">✔ Chuẩn</span>'
+            : '<span style="color:#FF4B4B">✘ Không chuẩn</span>'}</td>
+        </tr>
+    `).join("");
+
+    distributionResults.innerHTML = `
+        <h3>📉 Kiểm định phân phối</h3>
+        <p style="margin-bottom:1rem">${distribution.conclusion}</p>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr><th>Kiểm định</th><th>Statistic</th><th>p-value</th><th>Kết quả</th></tr>
+                </thead>
+                <tbody>${testsHtml}</tbody>
+            </table>
+        </div>
+        <p class="hint" style="margin-top:0.5rem">Phân phối fit tốt nhất: <strong>${distribution.best_fit}</strong></p>
+    `;
 }
 
 /**
  * Render tất cả Plotly charts vào các container tương ứng.
+ * Sử dụng Plotly.react() thay newPlot() để hiệu năng tốt hơn khi re-render.
  *
  * @param {Object} charts - Dict chart_name → Plotly JSON string.
  */
 function renderCharts(charts) {
-    // TODO: Implement
-    // 1. Với mỗi chart: parse JSON, gọi Plotly.newPlot(containerId, data, layout)
-    // 2. Map: histogram_kde → chart-histogram, box_plot → chart-boxplot, v.v.
+    if (!charts) return;
+
+    const chartMap = {
+        "histogram_kde": "chart-histogram",
+        "box_plot":       "chart-boxplot",
+        "violin_plot":    "chart-violin",
+        "qq_plot":        "chart-qqplot",
+        "scatter_outlier":"chart-scatter",
+        "strip_plot":     "chart-strip",
+    };
+
+    const plotlyConfig = {
+        responsive: true,
+        displayModeBar: true,
+        displaylogo: false,
+        modeBarButtonsToRemove: ["lasso2d", "select2d"],
+    };
+
+    Object.entries(chartMap).forEach(([key, elementId]) => {
+        const el = document.getElementById(elementId);
+        if (!el) return;  // Element not in DOM — skip silently
+
+        if (!charts[key]) {
+            el.innerHTML = '<p class="chart-empty">Biểu đồ chưa sẵn sàng</p>';
+            return;
+        }
+
+        try {
+            const figData = JSON.parse(charts[key]);
+
+            // Chỉ patch autosize — KHÔNG override layout gốc từ Plotly Python
+            // Plotly Python đã serialize đúng axis ranges, dtype arrays, v.v.
+            const layout = figData.layout || {};
+            if (!('autosize' in layout)) layout.autosize = true;
+
+            Plotly.newPlot(elementId, figData.data, layout, plotlyConfig);
+        } catch (err) {
+            console.error(`Lỗi render chart ${key}:`, err);
+            el.innerHTML = '<p class="chart-error">Không thể tải biểu đồ</p>';
+        }
+    });
+
+    // Sau khi DOM settle, resize tất cả charts để fill đúng container
+    requestAnimationFrame(() => {
+        Object.values(chartMap).forEach(id => {
+            const el = document.getElementById(id);
+            if (el && el._fullLayout) {
+                Plotly.Plots.resize(el);
+            }
+        });
+    });
 }
 
 /**
@@ -175,10 +447,43 @@ function renderCharts(charts) {
  * @param {Array<Object>} outliers - List OutlierRecord từ API.
  */
 function renderOutliers(outliers) {
-    // TODO: Implement
-    // 1. Tạo thead (Row #, Label, Value, Phương pháp, Giải thích)
-    // 2. Tạo tbody, mỗi row có class "outlier-row"
-    // 3. Nếu rỗng, hiển thị "Không phát hiện outlier"
+    if (!outliers || outliers.length === 0) {
+        outlierTable.innerHTML = '<p style="color:#4CAF50">🎉 Không phát hiện giá trị ngoại lai nào!</p>';
+        return;
+    }
+
+    const rows = outliers.map(o => {
+        const severity = Math.abs(o.z_score) > 3.5 ? 'extreme' : 'moderate';
+        return `
+      <tr class="outlier-row outlier-${severity}" data-index="${o.row_index}">
+        <td>${o.row_index}</td>
+        <td>${o.label || '-'}</td>
+        <td class="outlier-value">${o.value?.toFixed(2) ?? 'N/A'}</td>
+        <td>${o.methods_flagged?.join(', ') ?? '-'}</td>
+        <td>${o.z_score?.toFixed(3) ?? 'N/A'}</td>
+        <td class="explanation">${o.explanation ?? ''}</td>
+      </tr>
+    `;
+    }).join('');
+
+
+    outlierTable.innerHTML = `
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Chỉ mục</th>
+                        <th>Nhãn</th>
+                        <th>Giá trị</th>
+                        <th>Phương pháp</th>
+                        <th>Z-Score</th>
+                        <th>Giải thích</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>
+    `;
 }
 
 /**
@@ -187,10 +492,54 @@ function renderOutliers(outliers) {
  * @param {Object} report - FullReport dict từ API.
  */
 function renderReport(report) {
-    // TODO: Implement
-    // 1. Build HTML từ report.summary, statistics_comment, v.v.
-    // 2. Gán vào reportContent.innerHTML
+    if (!report) return;
+
+    const sections = [
+        { icon: "📌", label: "Tóm tắt", text: report.summary },
+        { icon: "📊", label: "Thống kê", text: report.statistics_comment },
+        { icon: "📈", label: "Phân phối", text: report.distribution_comment },
+        { icon: "🔴", label: "Outlier", text: report.outlier_comment },
+    ];
+
+    let html = '<div class="report-section" style="line-height:1.8">';
+
+    // Only render sections that have content
+    sections.forEach(s => {
+        if (s.text && s.text.trim()) {
+            html += `<p><strong>${s.icon} ${s.label}:</strong> ${s.text}</p>`;
+        }
+    });
+
+    // Divider before recommendation
+    html += '<hr style="border-color:rgba(255,255,255,0.1);margin:1rem 0">';
+
+    // Recommendation section
+    html += '<h4>💡 Đề xuất hành động:</h4>';
+    html += `<div style="white-space:pre-line;margin-top:0.5rem">`;
+    html += report.recommendation || "—";
+    html += '</div>';
+
+    // Copy button
+    html += `
+        <button class="btn btn-secondary" style="margin-top:1.5rem"
+                onclick="copyReport()">
+            📋 Sao chép báo cáo
+        </button>
+    `;
+
+    html += '</div>';
+    reportContent.innerHTML = html;
 }
+
+function copyReport() {
+    const text = reportContent.innerText;
+    navigator.clipboard.writeText(text).then(() => {
+        showToast("Đã sao chép báo cáo!", "success");
+    }).catch(() => {
+        showToast("Không thể sao chép vào clipboard", "error");
+    });
+}
+
 
 
 // -------------------------------------------------------------------------- //
@@ -198,17 +547,39 @@ function renderReport(report) {
 // -------------------------------------------------------------------------- //
 
 /**
- * Cập nhật hiển thị giá trị threshold khi kéo slider.
+ * Hiển thị toast notification thay vì alert().
+ *
+ * @param {string} message - Nội dung thông báo.
+ * @param {'success'|'error'|'warning'|'info'} type - Loại thông báo.
+ * @param {number} duration - Thời gian hiển thị (ms).
  */
-function updateThresholdDisplay() {
-    // TODO: thresholdValue.textContent = thresholdSlider.value
+function showToast(message, type = 'info', duration = 4000) {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        document.body.appendChild(container);
+    }
+
+    const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `
+        <span class="toast-icon">${icons[type] || 'ℹ️'}</span>
+        <span class="toast-msg">${message}</span>
+        <button class="toast-close" aria-label="Đóng" onclick="this.parentElement.remove()">×</button>
+    `;
+
+    container.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('toast-show'));
+
+    setTimeout(() => {
+        toast.classList.remove('toast-show');
+        setTimeout(() => toast.remove(), 300);
+    }, duration);
 }
 
-/**
- * Hiển thị lỗi cho user (toast hoặc alert).
- *
- * @param {string} message - Thông báo lỗi.
- */
+/** Wrapper ngắn gọn để dùng thay alert() */
 function showError(message) {
-    // TODO: Implement — toast notification hoặc alert
+    showToast(message, 'error');
 }

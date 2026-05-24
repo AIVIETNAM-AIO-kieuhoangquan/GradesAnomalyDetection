@@ -40,29 +40,62 @@ class TestShapiroWilk:
 
     def test_normal_data_passes(self, normal_scores: pd.Series) -> None:
         """Dữ liệu chuẩn phải có is_normal=True."""
-        # TODO: Implement test
-        pass
+        result = shapiro_wilk_test(normal_scores)
+
+        assert result["is_normal"] is True
+        assert result["p_value"] > 0.05
 
     def test_skewed_data_fails(self, skewed_scores: pd.Series) -> None:
         """Dữ liệu lệch phải có is_normal=False."""
-        # TODO: Implement test
-        pass
+        result = shapiro_wilk_test(skewed_scores)
+
+        assert result["is_normal"] is False
+        assert result["p_value"] <= 0.05
 
     def test_result_keys(self, normal_scores: pd.Series) -> None:
         """Kết quả phải chứa test_name, statistic, p_value, is_normal."""
-        # TODO: Implement test
-        pass
+        result = shapiro_wilk_test(normal_scores)
 
+        expected_keys = {
+            "test_name",
+            "statistic",
+            "p_value",
+            "is_normal",
+        }
+
+        assert expected_keys.issubset(result.keys())
 
 class TestRunAllTests:
     """Tests cho run_all_tests()."""
 
     def test_returns_all_fields(self, normal_scores: pd.Series) -> None:
         """Kết quả phải chứa tests, best_fit, conclusion."""
-        # TODO: Implement test
-        pass
+        result = run_all_tests(normal_scores)
+
+        expected_keys = {
+            "tests",
+            "best_fit",
+            "conclusion",
+        }
+
+        assert expected_keys.issubset(result.keys())
 
     def test_conclusion_is_vietnamese(self, normal_scores: pd.Series) -> None:
         """conclusion phải là chuỗi tiếng Việt (chứa dấu)."""
-        # TODO: Implement test
-        pass
+        result = run_all_tests(normal_scores)
+
+        conclusion = result["conclusion"]
+
+        vietnamese_chars = (
+            "àáạảãăắằặẳẵâấầậẩẫ"
+            "èéẹẻẽêếềệểễ"
+            "ìíịỉĩ"
+            "òóọỏõôốồộổỗơớờợởỡ"
+            "ùúụủũưứừựửữ"
+            "ỳýỵỷỹ"
+            "đ"
+        )
+
+        assert isinstance(conclusion, str)
+        assert len(conclusion) > 0
+        assert any(char in conclusion.lower() for char in vietnamese_chars)

@@ -28,23 +28,29 @@ class TestDescriptiveStats:
 
     def test_mean(self, known_scores: pd.Series) -> None:
         """Mean của [2,4,4,4,5,5,7,9] = 5.0."""
-        # TODO: Implement test
-        pass
+        stats = compute_descriptive_stats(known_scores)
+        assert stats["mean"] == 5.0
 
     def test_median(self, known_scores: pd.Series) -> None:
         """Median = 4.5."""
-        # TODO: Implement test
-        pass
+        stats = compute_descriptive_stats(known_scores)
+        assert stats["median"] == 4.5
 
     def test_empty_series_raises(self) -> None:
         """Series rỗng phải raise ValueError."""
-        # TODO: Implement test
-        pass
+        empty_s = pd.Series([], dtype=float)
+        with pytest.raises(ValueError, match="rỗng"):
+            compute_descriptive_stats(empty_s)
 
     def test_all_keys_present(self, known_scores: pd.Series) -> None:
         """Kết quả phải chứa đủ tất cả keys cần thiết."""
-        # TODO: Implement test
-        pass
+        stats = compute_descriptive_stats(known_scores)
+        expected_keys = {
+            "mean", "median", "std", "min", "max", 
+            "count", "skewness", "kurtosis"
+        }
+        # Kiểm tra xem tất cả keys mong muốn có nằm trong kết quả không
+        assert expected_keys.issubset(stats.keys())
 
 
 class TestFrequencyTable:
@@ -52,10 +58,17 @@ class TestFrequencyTable:
 
     def test_bin_count(self, known_scores: pd.Series) -> None:
         """Số bins phải đúng khi chỉ định."""
-        # TODO: Implement test
-        pass
+        bins = 4
+        df_freq = compute_frequency_table(known_scores, bins=bins)
+        
+        # Giả định kết quả trả về là DataFrame với mỗi dòng là 1 bin
+        assert len(df_freq) == bins
 
     def test_frequency_sum(self, known_scores: pd.Series) -> None:
         """Tổng frequency phải = 100%."""
-        # TODO: Implement test
-        pass
+        df_freq = compute_frequency_table(known_scores, bins=5)
+        
+        # Kiểm tra cột 'percentage' hoặc 'relative_frequency'
+        total_percentage = df_freq["percentage"].sum()
+        # Dùng pytest.approx để tránh lỗi sai số dấu phẩy động (float precision)
+        assert total_percentage == pytest.approx(100.0)
