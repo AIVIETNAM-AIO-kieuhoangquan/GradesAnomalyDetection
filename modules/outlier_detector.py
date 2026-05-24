@@ -301,6 +301,46 @@ def detect_dbscan(
     return outlier_indices, detail
 
 
+def detect_percentile(
+    scores: pd.Series, lower_pct: float = 5.0, upper_pct: float = 95.0
+) -> tuple[list[int], DetectionDetail]:
+    """Phát hiện outlier dựa trên ngưỡng percentile cố định.
+
+    Outlier nếu: value < percentile(lower_pct) HOẶC value > percentile(upper_pct).
+
+    Phù hợp khi: phân phối rộng (platykurtic), bimodal, hoặc khi IQR không nhạy
+    (ví dụ dữ liệu điểm học sinh có IQR lớn).
+
+    Args:
+        scores: Series số đã clean.
+        lower_pct: Ngưỡng phần trăm dưới (mặc định 5.0 → điểm < P5 là outlier).
+        upper_pct: Ngưỡng phần trăm trên (mặc định 95.0 → điểm > P95 là outlier).
+
+    Returns:
+        Tuple gồm:
+        - List các integer index của outlier.
+        - DetectionDetail dict.
+    """
+    cleaned_scores = _clean_numeric_series(scores)
+
+    lower_bound = float(cleaned_scores.quantile(lower_pct / 100.0))
+    upper_bound = float(cleaned_scores.quantile(upper_pct / 100.0))
+
+    mask = (cleaned_scores < lower_bound) | (cleaned_scores > upper_bound)
+    outlier_indices = [int(index) for index in cleaned_scores.index[mask]]
+
+    detail: DetectionDetail = {
+        "method": "Percentile",
+        "params": {"lower_pct": lower_pct, "upper_pct": upper_pct},
+        "lower_bound": _round_float(lower_bound),
+        "upper_bound": _round_float(upper_bound),
+        "outlier_indices": outlier_indices,
+        "n_outliers": len(outlier_indices),
+    }
+
+    return outlier_indices, detail
+
+
 # --------------------------------------------------------------------------- #
 #  Hàm tổng hợp
 # --------------------------------------------------------------------------- #
@@ -314,31 +354,38 @@ def detect_ensemble(
     """Kết hợp nhiều phương pháp phát hiện outlier (majority voting).
 
     Một điểm được coi là outlier nếu nó bị phát hiện bởi >= min_votes phương pháp.
-    Nếu min_votes=None, sử dụng majority (> 50% methods).
+    Nếu min_votes=None, mặc định là 1 (chỉ cần 1 phương pháp phát hiện).
+
+    Mặc định dùng 3 phương pháp: ["iqr", "zscore", "percentile"].
+    Trong đó "percentile" (P5/P95) phù hợp với dữ liệu điểm học sinh
+    có phân phối rộng (platykurtic) mà IQR đơn thuần không bắt được.
 
     Args:
         scores: Series số đã clean.
-        methods: Danh sách phương pháp: ["iqr", "zscore", "mad", "dbscan"].
-                 Mặc định: ["iqr", "zscore"].
+        methods: Danh sách phương pháp: ["iqr", "zscore", "mad", "dbscan", "percentile"].
+                 Mặc định: ["iqr", "zscore", "percentile"].
         params: Dict phương pháp → dict tham số. Ví dụ:
-                {"iqr": {"factor": 1.5}, "zscore": {"threshold": 3.0}}
+                {"iqr": {"factor": 1.5}, "zscore": {"threshold": 2.5},
+                 "percentile": {"lower_pct": 5.0, "upper_pct": 95.0}}
         min_votes: Số phương pháp tối thiểu cần đồng thuận.
+                   Mặc định 1 (linh hoạt — bất kỳ method nào phát hiện là outlier).
 
     Returns:
         Tuple gồm:
         - List các integer index của outlier (đã vote).
         - Dict method_name → DetectionDetail cho từng phương pháp.
     """
-    # TODO: Implement — gọi từng method, đếm votes, lọc >= min_votes
     cleaned_scores = _clean_numeric_series(scores)
 
     if methods is None:
-        methods = ["iqr", "zscore"]
+        methods = ["iqr", "zscore", "percentile"]
 
     params = params or {}
 
+    # min_votes=1: chỉ cần 1 method phát hiện (union)
+    # Dùng min_votes=len(methods) để yêu cầu tất cả đồng ý (intersection)
     if min_votes is None:
-        min_votes = len(methods) // 2 + 1
+        min_votes = 1
 
     method_functions = {
         "iqr": detect_iqr,
@@ -346,6 +393,7 @@ def detect_ensemble(
         "mad": detect_modified_zscore,
         "modified_zscore": detect_modified_zscore,
         "dbscan": detect_dbscan,
+        "percentile": detect_percentile,
     }
 
     methods_detail: dict[str, DetectionDetail] = {}
@@ -542,6 +590,27 @@ def explain_outlier(
 
     if dbscan_detail and "DBSCAN" in methods_flagged:
         explanations.append("nằm ngoài các cụm điểm chính theo DBSCAN")
+
+    percentile_detail = next(
+        (
+            detail for detail in details.values()
+            if detail.get("method") == "Percentile"
+        ),
+        None,
+    )
+
+    if percentile_detail and "Percentile" in methods_flagged:
+        lower = percentile_detail.get("lower_bound")
+        upper = percentile_detail.get("upper_bound")
+        params_p = percentile_detail.get("params", {})
+        lp = params_p.get("lower_pct", 5.0)
+        up = params_p.get("upper_pct", 95.0)
+        if lower is not None and value < float(lower):
+            explanations.append(f"nằm dưới ngưỡng P{lp:.0f} ({float(lower):.4f})")
+        elif upper is not None and value > float(upper):
+            explanations.append(f"nằm trên ngưỡng P{up:.0f} ({float(upper):.4f})")
+        else:
+            explanations.append(f"vượt ngưỡng percentile P{lp:.0f}/P{up:.0f}")
 
     if not explanations:
         explanations.append("được nhiều phương pháp phát hiện là bất thường")

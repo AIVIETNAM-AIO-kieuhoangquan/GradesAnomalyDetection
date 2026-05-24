@@ -249,10 +249,12 @@ async function runAnalysis() {
     if (document.getElementById("method-zscore").checked) methods.push("zscore");
     if (document.getElementById("method-mad").checked) methods.push("mad");
     if (document.getElementById("method-dbscan").checked) methods.push("dbscan");
+    if (document.getElementById("method-percentile")?.checked) methods.push("percentile");
 
     const body = {
-        methods: methods.length > 0 ? methods : ["iqr", "zscore"],
+        methods: methods.length > 0 ? methods : ["iqr", "zscore", "percentile"],
         threshold: parseFloat(thresholdSlider.value),
+        min_votes: 1,
     };
 
     try {
@@ -381,40 +383,61 @@ function renderDistribution(distribution) {
 
 /**
  * Render tất cả Plotly charts vào các container tương ứng.
+ * Sử dụng Plotly.react() thay newPlot() để hiệu năng tốt hơn khi re-render.
  *
  * @param {Object} charts - Dict chart_name → Plotly JSON string.
  */
 function renderCharts(charts) {
     if (!charts) return;
 
-    const config = { responsive: true, displayModeBar: false };
-
     const chartMap = {
         "histogram_kde": "chart-histogram",
-        "box_plot": "chart-boxplot",
-        "violin_plot": "chart-violin",
-        "qq_plot": "chart-qqplot",
-        "scatter_outlier": "chart-scatter",
+        "box_plot":       "chart-boxplot",
+        "violin_plot":    "chart-violin",
+        "qq_plot":        "chart-qqplot",
+        "scatter_outlier":"chart-scatter",
+        "strip_plot":     "chart-strip",
+    };
+
+    const plotlyConfig = {
+        responsive: true,
+        displayModeBar: true,
+        displaylogo: false,
+        modeBarButtonsToRemove: ["lasso2d", "select2d"],
     };
 
     Object.entries(chartMap).forEach(([key, elementId]) => {
         const el = document.getElementById(elementId);
-        if (!el) return;
+        if (!el) return;  // Element not in DOM — skip silently
+
         if (!charts[key]) {
             el.innerHTML = '<p class="chart-empty">Biểu đồ chưa sẵn sàng</p>';
             return;
         }
+
         try {
             const figData = JSON.parse(charts[key]);
-            Plotly.newPlot(elementId, figData.data, figData.layout, {
-                responsive: true,
-                displayModeBar: true,
-                displaylogo: false,
-            });
+
+            // Chỉ patch autosize — KHÔNG override layout gốc từ Plotly Python
+            // Plotly Python đã serialize đúng axis ranges, dtype arrays, v.v.
+            const layout = figData.layout || {};
+            if (!('autosize' in layout)) layout.autosize = true;
+
+            Plotly.newPlot(elementId, figData.data, layout, plotlyConfig);
         } catch (err) {
             console.error(`Lỗi render chart ${key}:`, err);
             el.innerHTML = '<p class="chart-error">Không thể tải biểu đồ</p>';
         }
+    });
+
+    // Sau khi DOM settle, resize tất cả charts để fill đúng container
+    requestAnimationFrame(() => {
+        Object.values(chartMap).forEach(id => {
+            const el = document.getElementById(id);
+            if (el && el._fullLayout) {
+                Plotly.Plots.resize(el);
+            }
+        });
     });
 }
 

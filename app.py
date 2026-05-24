@@ -155,8 +155,9 @@ def api_analyze() -> tuple[Any, int]:
 
     # 2. Parse request JSON
     req_data = request.json or {}
-    methods = req_data.get("methods", ["iqr", "zscore"])
+    methods = req_data.get("methods", ["iqr", "zscore", "percentile"])
     threshold = float(req_data.get("threshold", 2.5))
+    min_votes = req_data.get("min_votes", 1)
 
     try:
         # 3. Trích xuất target (Exam_Score) và features
@@ -180,23 +181,27 @@ def api_analyze() -> tuple[Any, int]:
             }
 
         # 6. Phát hiện outlier
+        # Percentile P5/P95 được thêm vì IQR thường quá rộng với dữ liệu điểm học sinh
         try:
             params = {
                 "zscore": {"threshold": threshold},
                 "mad": {"threshold": threshold + 1.0},
+                "percentile": {"lower_pct": 5.0, "upper_pct": 95.0},
             }
             outlier_indices, outlier_details = detect_ensemble(
                 target,
                 methods=methods,
                 params=params,
+                min_votes=min_votes,
             )
         except (NotImplementedError, Exception):
             outlier_indices, outlier_details = [], {}
 
         # 7. Xây dựng bảng outlier
+        # Dataset không có cột label/tên học sinh — truyền None cho labels
         try:
             outlier_records = build_outlier_report(
-                full_df, outlier_indices, outlier_details
+                target, None, outlier_indices, outlier_details
             )
         except (NotImplementedError, Exception):
             outlier_records = []

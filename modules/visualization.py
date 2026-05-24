@@ -105,9 +105,68 @@ def _apply_default_layout(
     return fig
 
 
+import base64 as _base64
+import json as _json
+import struct as _struct
+
+
+def _decode_plotly_typed_array(obj: dict) -> list:
+    """Decode Plotly typed array {'dtype':'f8','bdata':'<base64>'} thành Python list."""
+    raw = _base64.b64decode(obj["bdata"])
+    dtype = obj["dtype"]
+    fmt_map = {
+        "f8": ("d", 8), "f4": ("f", 4),
+        "i4": ("i", 4), "i8": ("q", 8),
+        "u4": ("I", 4), "u8": ("Q", 8),
+        "i2": ("h", 2), "u2": ("H", 2),
+    }
+    if dtype not in fmt_map:
+        return list(raw)
+    fmt_char, item_size = fmt_map[dtype]
+    n = len(raw) // item_size
+    return list(_struct.unpack(f"<{n}{fmt_char}", raw))
+
+
+def _convert_to_serializable(obj: object) -> object:
+    """Đệ quy convert Plotly typed arrays và numpy/pandas thành Python lists.
+
+    Plotly Python >= 5.x serialize pandas/numpy arrays thành:
+    {'dtype': 'f8', 'bdata': '<base64>'} trong fig.to_dict().
+    Cần decode tất cả về plain Python list trước khi json.dumps().
+    """
+    # Plotly typed array pattern: dict có đúng các key dtype + bdata
+    if (
+        isinstance(obj, dict)
+        and set(obj.keys()) <= {"dtype", "bdata", "order"}
+        and "dtype" in obj
+        and "bdata" in obj
+    ):
+        return _decode_plotly_typed_array(obj)
+
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    if isinstance(obj, np.integer):
+        return int(obj)
+    if isinstance(obj, np.floating):
+        return float(obj)
+    if isinstance(obj, pd.Series):
+        return obj.tolist()
+    if isinstance(obj, dict):
+        return {k: _convert_to_serializable(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_convert_to_serializable(v) for v in obj]
+    return obj
+
+
 def _figure_to_json(fig: go.Figure) -> str:
-    """Chuyển Plotly Figure thành JSON string."""
-    return fig.to_json()
+    """Chuyển Plotly Figure thành plain-array JSON string.
+
+    Plotly Python >= 5.x serialize arrays thành Plotly typed array format.
+    Dùng _convert_to_serializable() để decode về plain lists mà Plotly.js đọc được.
+    """
+    fig_dict = _convert_to_serializable(fig.to_dict())
+    return _json.dumps(fig_dict, allow_nan=False)
+
 
 
 # --------------------------------------------------------------------------- #
@@ -252,7 +311,11 @@ def create_box_plot(
                 )
             )
 
-    _apply_default_layout(fig, title, "Nhóm", "Điểm")
+    _apply_default_layout(
+        fig, title,
+        "" if group_labels is None else "Nhóm",
+        "Điểm",
+    )
 
     return _figure_to_json(fig)
 
@@ -314,7 +377,11 @@ def create_violin_plot(
                 )
             )
 
-    _apply_default_layout(fig, title, "Nhóm", "Điểm")
+    _apply_default_layout(
+        fig, title,
+        "" if group_labels is None else "Nhóm",
+        "Điểm",
+    )
 
     return _figure_to_json(fig)
 

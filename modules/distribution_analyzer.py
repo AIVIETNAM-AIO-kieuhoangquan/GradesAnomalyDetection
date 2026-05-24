@@ -196,13 +196,18 @@ def anderson_darling_test(scores: pd.Series) -> TestResult:
         TestResult dict. Trường "is_normal" dựa trên mức ý nghĩa 5%.
         Bổ sung trường "critical_values": dict[str, float].
     """
-    # TODO: Implement — scipy.stats.anderson(dist="norm")
+    # NOTE: scipy.stats.anderson(dist="norm") — dùng critical_values (API cũ).
+    # Suppress FutureWarning từ SciPy ≥ 1.17 vì critical_values vẫn được trả về.
+    import warnings
+
     cleaned_scores = _clean_numeric_series(scores)
 
     if len(cleaned_scores) < 3:
         raise ValueError("Anderson-Darling yêu cầu ít nhất 3 giá trị.")
 
-    result = stats.anderson(cleaned_scores.to_numpy(), dist="norm")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", FutureWarning)
+        result = stats.anderson(cleaned_scores.to_numpy(), dist="norm")
 
     critical_values = {
         f"{float(level)}%": _round_float(value)
