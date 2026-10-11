@@ -50,6 +50,9 @@ const reportContent = document.getElementById("report-content");
 
 /** @type {{ column_stats: Object, preview: Array, row_count: number } | null} */
 let uploadedMeta = null;
+let latestAnalysisData = null;
+let currentOutliers = [];
+let currentFilter = "all";
 
 
 // -------------------------------------------------------------------------- //
@@ -305,6 +308,7 @@ thresholdSlider.addEventListener("input", () => {
  * Dispatcher: gọi tất cả các hàm render sau khi nhận response từ API.
  */
 function renderResults(data) {
+    latestAnalysisData = data;
     renderStats(data.stats);
     renderDistribution(data.distribution);
     renderCharts(data.charts);
@@ -442,48 +446,212 @@ function renderCharts(charts) {
 }
 
 /**
- * Render bảng outlier với highlighting.
+ * Render bảng outlier với highlighting, severity badges và bộ lọc.
  *
  * @param {Array<Object>} outliers - List OutlierRecord từ API.
  */
 function renderOutliers(outliers) {
+    currentOutliers = outliers || [];
+    currentFilter = "all";
+
+    const countTag = document.getElementById("outlier-count-tag");
+    const actions = document.getElementById("outlier-actions");
+    const filtersBar = document.getElementById("outlier-filters-bar");
+    const searchInput = document.getElementById("outlier-search-input");
+    if (searchInput) searchInput.value = "";
+
+    // Reset filter chips
+    document.querySelectorAll(".filter-chip").forEach(chip => {
+        chip.classList.toggle("active", chip.dataset.filter === "all");
+    });
+
     if (!outliers || outliers.length === 0) {
-        outlierTable.innerHTML = '<p style="color:#4CAF50">🎉 Không phát hiện giá trị ngoại lai nào!</p>';
+        if (countTag) {
+            countTag.textContent = "0 phát hiện";
+            countTag.removeAttribute("hidden");
+        }
+        if (actions) actions.setAttribute("hidden", "true");
+        if (filtersBar) filtersBar.setAttribute("hidden", "true");
+        outlierTable.innerHTML = `
+            <tbody>
+                <tr>
+                    <td colspan="7" style="text-align:center;padding:2.5rem;color:var(--emerald);">
+                        🎉 Không phát hiện giá trị ngoại lai nào với cấu hình hiện tại!
+                    </td>
+                </tr>
+            </tbody>
+        `;
         return;
     }
 
-    const rows = outliers.map(o => {
-        const severity = Math.abs(o.z_score) > 3.5 ? 'extreme' : 'moderate';
-        return `
-      <tr class="outlier-row outlier-${severity}" data-index="${o.row_index}">
-        <td>${o.row_index}</td>
-        <td>${o.label || '-'}</td>
-        <td class="outlier-value">${o.value?.toFixed(2) ?? 'N/A'}</td>
-        <td>${o.methods_flagged?.join(', ') ?? '-'}</td>
-        <td>${o.z_score?.toFixed(3) ?? 'N/A'}</td>
-        <td class="explanation">${o.explanation ?? ''}</td>
-      </tr>
-    `;
-    }).join('');
+    if (countTag) {
+        countTag.textContent = `${outliers.length} phát hiện`;
+        countTag.removeAttribute("hidden");
+    }
+    if (actions) actions.removeAttribute("hidden");
+    if (filtersBar) filtersBar.removeAttribute("hidden");
 
+    renderOutlierRows(currentOutliers);
+}
+
+/**
+ * Render các hàng trong bảng outlier.
+ *
+ * @param {Array<Object>} outliersList - Danh sách outliers cần hiển thị.
+ */
+function renderOutlierRows(outliersList) {
+    if (!outliersList || outliersList.length === 0) {
+        outlierTable.innerHTML = `
+            <thead>
+                <tr>
+                    <th>Chỉ mục</th>
+                    <th>Nhãn</th>
+                    <th>Điểm số</th>
+                    <th>Phương pháp</th>
+                    <th>Z-Score</th>
+                    <th>Mức độ</th>
+                    <th>Giải thích</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td colspan="7" style="text-align:center;padding:2rem;color:var(--text3);">
+                        Không tìm thấy bản ghi ngoại lai nào phù hợp với bộ lọc hiện tại.
+                    </td>
+                </tr>
+            </tbody>
+        `;
+        return;
+    }
+
+    const rows = outliersList.map(o => {
+        const isExtreme = Math.abs(o.z_score) > 3.5;
+        const severityClass = isExtreme ? "severity-extreme" : "severity-moderate";
+        const severityLabel = isExtreme ? "Cực đoan" : "Vừa phải";
+        const methodsHtml = (o.methods_flagged || [])
+            .map(m => `<span class="method-tag">${m.toUpperCase()}</span>`)
+            .join("");
+
+        return `
+            <tr class="outlier-row ${isExtreme ? 'outlier-extreme' : 'outlier-moderate'}" data-index="${o.row_index}">
+                <td><strong>#${o.row_index}</strong></td>
+                <td>${o.label || '—'}</td>
+                <td class="outlier-value">${o.value?.toFixed(2) ?? 'N/A'}</td>
+                <td>${methodsHtml || '—'}</td>
+                <td><strong>${o.z_score !== undefined ? o.z_score.toFixed(3) : 'N/A'}</strong></td>
+                <td><span class="severity-pill ${severityClass}">${severityLabel}</span></td>
+                <td class="explanation">${o.explanation ?? '—'}</td>
+            </tr>
+        `;
+    }).join("");
 
     outlierTable.innerHTML = `
-        <div class="table-wrapper">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Chỉ mục</th>
-                        <th>Nhãn</th>
-                        <th>Giá trị</th>
-                        <th>Phương pháp</th>
-                        <th>Z-Score</th>
-                        <th>Giải thích</th>
-                    </tr>
-                </thead>
-                <tbody>${rows}</tbody>
-            </table>
-        </div>
+        <thead>
+            <tr>
+                <th>Chỉ mục</th>
+                <th>Nhãn</th>
+                <th>Điểm số</th>
+                <th>Phương pháp</th>
+                <th>Z-Score</th>
+                <th>Mức độ</th>
+                <th>Giải thích</th>
+            </tr>
+        </thead>
+        <tbody>${rows}</tbody>
     `;
+}
+
+/**
+ * Áp dụng bộ lọc và từ khóa tìm kiếm trên bảng outlier.
+ */
+function applyOutlierFilters() {
+    const searchInput = document.getElementById("outlier-search-input");
+    const query = searchInput ? searchInput.value.trim().toLowerCase() : "";
+
+    const filtered = currentOutliers.filter(o => {
+        const isExtreme = Math.abs(o.z_score) > 3.5;
+        if (currentFilter === "extreme" && !isExtreme) return false;
+        if (currentFilter === "moderate" && isExtreme) return false;
+
+        if (query) {
+            const idxMatch = String(o.row_index).includes(query);
+            const labelMatch = o.label ? String(o.label).toLowerCase().includes(query) : false;
+            const valMatch = String(o.value).includes(query);
+            const expMatch = o.explanation ? o.explanation.toLowerCase().includes(query) : false;
+            if (!idxMatch && !labelMatch && !valMatch && !expMatch) return false;
+        }
+
+        return true;
+    });
+
+    renderOutlierRows(filtered);
+}
+
+/**
+ * Xuất danh sách Outliers sang file CSV.
+ */
+function exportOutliersCSV() {
+    if (!currentOutliers || currentOutliers.length === 0) {
+        showToast("Không có bản ghi ngoại lai nào để xuất!", "warning");
+        return;
+    }
+
+    try {
+        const headers = ["Index", "Label", "Score", "Methods_Flagged", "Z_Score", "Severity", "Explanation"];
+        const rows = currentOutliers.map(o => {
+            const z = o.z_score;
+            const sev = Math.abs(z) > 3.5 ? "Cực đoan" : "Vừa phải";
+            const methods = (o.methods_flagged || []).join("; ");
+            const exp = `"${(o.explanation || '').replace(/"/g, '""')}"`;
+            return [o.row_index, o.label || "", o.value, methods, z !== undefined ? z.toFixed(4) : "", sev, exp];
+        });
+
+        const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `outliers_report_${new Date().toISOString().slice(0, 10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        showToast("Đã tải xuống file CSV outliers!", "success");
+    } catch (e) {
+        window.location.href = "/api/export/outliers";
+    }
+}
+
+/**
+ * Xuất toàn bộ báo cáo phân tích sang file JSON.
+ */
+function exportReportJSON() {
+    if (!latestAnalysisData) {
+        showToast("Chưa có kết quả phân tích để xuất!", "warning");
+        return;
+    }
+
+    try {
+        const payload = {
+            exported_at: new Date().toISOString(),
+            stats: latestAnalysisData.stats,
+            distribution: latestAnalysisData.distribution,
+            outliers: latestAnalysisData.outliers,
+            report: latestAnalysisData.report,
+        };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `student_score_report_${new Date().toISOString().slice(0, 10)}.json`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        showToast("Đã tải xuống báo cáo JSON!", "success");
+    } catch (e) {
+        window.location.href = "/api/export/report";
+    }
 }
 
 /**
@@ -493,6 +661,9 @@ function renderOutliers(outliers) {
  */
 function renderReport(report) {
     if (!report) return;
+
+    const reportActions = document.getElementById("report-actions");
+    if (reportActions) reportActions.removeAttribute("hidden");
 
     const sections = [
         { icon: "📌", label: "Tóm tắt", text: report.summary },
@@ -521,10 +692,14 @@ function renderReport(report) {
 
     // Copy button
     html += `
-        <button class="btn btn-secondary" style="margin-top:1.5rem"
-                onclick="copyReport()">
-            📋 Sao chép báo cáo
-        </button>
+        <div style="display:flex;gap:.75rem;margin-top:1.5rem;flex-wrap:wrap">
+            <button class="btn btn-secondary" onclick="copyReport()">
+                📋 Sao chép báo cáo
+            </button>
+            <button class="btn btn-secondary" onclick="exportReportJSON()">
+                📄 Tải file JSON
+            </button>
+        </div>
     `;
 
     html += '</div>';
@@ -583,3 +758,34 @@ function showToast(message, type = 'info', duration = 4000) {
 function showError(message) {
     showToast(message, 'error');
 }
+
+// -------------------------------------------------------------------------- //
+//  Export & Filter Event Listeners
+// -------------------------------------------------------------------------- //
+
+document.addEventListener("DOMContentLoaded", () => {
+    const btnExportOutliers = document.getElementById("btn-export-outliers");
+    if (btnExportOutliers) {
+        btnExportOutliers.addEventListener("click", exportOutliersCSV);
+    }
+
+    const btnExportReport = document.getElementById("btn-export-report-json");
+    if (btnExportReport) {
+        btnExportReport.addEventListener("click", exportReportJSON);
+    }
+
+    const filterChips = document.querySelectorAll(".filter-chip");
+    filterChips.forEach(chip => {
+        chip.addEventListener("click", (e) => {
+            filterChips.forEach(c => c.classList.remove("active"));
+            chip.classList.add("active");
+            currentFilter = chip.dataset.filter || "all";
+            applyOutlierFilters();
+        });
+    });
+
+    const searchInput = document.getElementById("outlier-search-input");
+    if (searchInput) {
+        searchInput.addEventListener("input", applyOutlierFilters);
+    }
+});

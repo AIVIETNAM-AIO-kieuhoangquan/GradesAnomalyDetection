@@ -189,7 +189,26 @@
     <!-- Outlier Table -->
     <div class="section-title"><h2>🚨 Outlier Detection</h2></div>
     <div id="outlier-results" class="card">
-      <h3>Danh sách giá trị ngoại lai</h3>
+      <div class="card-header-actions">
+        <div class="card-title-group">
+          <h3>Danh sách giá trị ngoại lai</h3>
+          <span id="outlier-count-tag" class="outlier-count-badge" hidden>0 phát hiện</span>
+        </div>
+        <div class="action-btn-group" id="outlier-actions" hidden>
+          <button id="btn-export-outliers" class="btn btn-sm btn-secondary" title="Xuất danh sách ngoại lai sang file CSV">
+            📥 Xuất CSV
+          </button>
+        </div>
+      </div>
+
+      <div id="outlier-filters-bar" class="outlier-filters-bar" hidden>
+        <span class="filter-label">Mức độ:</span>
+        <button class="filter-chip active" data-filter="all">Tất cả</button>
+        <button class="filter-chip" data-filter="extreme">Cực đoan (|z| > 3.5)</button>
+        <button class="filter-chip" data-filter="moderate">Vừa phải</button>
+        <input type="text" id="outlier-search-input" class="search-input" placeholder="Tìm theo chỉ mục, nhãn...">
+      </div>
+
       <div class="table-wrapper">
         <table id="outlier-table"></table>
       </div>
@@ -198,6 +217,14 @@
     <!-- Report -->
     <div class="section-title"><h2>💡 Báo cáo & Khuyến nghị</h2></div>
     <div id="report-section" class="card">
+      <div class="card-header-actions">
+        <h3>Báo cáo tự động & Đề xuất</h3>
+        <div class="action-btn-group" id="report-actions" hidden>
+          <button id="btn-export-report-json" class="btn btn-sm btn-secondary" title="Tải xuống tệp báo cáo JSON đầy đủ">
+            📄 Xuất JSON
+          </button>
+        </div>
+      </div>
       <div id="report-content"></div>
     </div>
 
