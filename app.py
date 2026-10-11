@@ -13,6 +13,9 @@ Cung cấp các API endpoints:
 
 from __future__ import annotations
 
+import csv
+import io
+import json
 import os
 from typing import Any
 
@@ -226,16 +229,17 @@ def api_analyze() -> tuple[Any, int]:
                 "recommendation": "Module báo cáo đang được phát triển.",
             }
 
-        # 10. Trả về JSON tổng hợp
-        return jsonify(
-            {
-                "stats": stats,
-                "distribution": dist_results,
-                "outliers": outlier_records,
-                "charts": charts,
-                "report": report,
-            }
-        ), 200
+        # 10. Lưu kết quả và trả về JSON tổng hợp
+        result_payload = {
+            "stats": stats,
+            "distribution": dist_results,
+            "outliers": outlier_records,
+            "charts": charts,
+            "report": report,
+        }
+        _uploaded_data["last_analysis"] = result_payload
+
+        return jsonify(result_payload), 200
 
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
@@ -253,6 +257,102 @@ def api_sample_data() -> Any:
     if not os.path.exists(file_path):
         return jsonify({"error": "File dữ liệu mẫu không tồn tại"}), 404
     return send_file(file_path, as_attachment=True, download_name="scores_sample.csv")
+
+
+@app.route("/api/export/outliers", methods=["GET", "POST"])
+def api_export_outliers() -> Any:
+    """Xuất danh sách outlier đã phát hiện thành file CSV (UTF-8 BOM cho Excel)."""
+    records: list[dict[str, Any]] | None = None
+
+    if request.method == "POST":
+        req_data = request.get_json(silent=True) or {}
+        records = req_data.get("outliers")
+
+    if records is None:
+        last = _uploaded_data.get("last_analysis")
+        if not last or "outliers" not in last:
+            return (
+                jsonify(
+                    {"error": "Chưa có kết quả outlier. Vui lòng phân tích dữ liệu trước."}
+                ),
+                400,
+            )
+        records = last.get("outliers", [])
+
+    if not records:
+        return jsonify({"error": "Không có bản ghi ngoại lai nào để xuất"}), 404
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(
+        [
+            "Index",
+            "Nhãn (Label)",
+            "Điểm số (Score)",
+            "Phương pháp phát hiện",
+            "Z-Score",
+            "Mức độ (Severity)",
+            "Giải thích chi tiết",
+        ]
+    )
+
+    for r in records:
+        z = r.get("z_score")
+        sev = "Cực đoan (Extreme)" if (z is not None and abs(z) > 3.5) else "Vừa phải (Moderate)"
+        methods_str = ", ".join(r.get("methods_flagged", [])) if r.get("methods_flagged") else "-"
+        writer.writerow(
+            [
+                r.get("row_index", ""),
+                r.get("label") or "-",
+                r.get("value", ""),
+                methods_str,
+                f"{z:.4f}" if z is not None else "",
+                sev,
+                r.get("explanation", ""),
+            ]
+        )
+
+    output.seek(0)
+    bytes_io = io.BytesIO(output.getvalue().encode("utf-8-sig"))
+    return send_file(
+        bytes_io,
+        mimetype="text/csv",
+        as_attachment=True,
+        download_name="outliers_report.csv",
+    )
+
+
+@app.route("/api/export/report", methods=["GET"])
+def api_export_report() -> Any:
+    """Xuất toàn bộ báo cáo phân tích thành tệp JSON có cấu trúc."""
+    last = _uploaded_data.get("last_analysis")
+    if not last:
+        return (
+            jsonify(
+                {"error": "Chưa có kết quả phân tích. Vui lòng chạy phân tích trước."}
+            ),
+            400,
+        )
+
+    report_payload = {
+        "stats": last.get("stats"),
+        "distribution": last.get("distribution"),
+        "outlier_summary": {
+            "total_outliers": len(last.get("outliers", [])),
+            "outliers": last.get("outliers", []),
+        },
+        "report": last.get("report"),
+    }
+
+    bytes_io = io.BytesIO(
+        json.dumps(report_payload, ensure_ascii=False, indent=2).encode("utf-8")
+    )
+    return send_file(
+        bytes_io,
+        mimetype="application/json",
+        as_attachment=True,
+        download_name="analysis_full_report.json",
+    )
 
 
 # --------------------------------------------------------------------------- #
